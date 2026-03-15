@@ -163,7 +163,7 @@ export function useDeliveryDrivers() {
         .from('profiles')
         .select('id, full_name, avatar_url, phone, vehicle_plate, vehicle_type')
         .eq('is_approved', true)
-        .in('role', ['delivery', 'coordinator', 'super_admin'])
+        .eq('role', 'delivery')
         .order('full_name')
 
       if (error) throw error

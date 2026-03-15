@@ -180,9 +180,15 @@ function OrderCard({ order, onAssign }: { order: Order; onAssign: () => void }) 
 
           {/* Action buttons based on status */}
           {order.status === 'pending' && !confirmDelete && (
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button onClick={onAssign} title="Gán giao nhận" style={actionBtn('#06b6d4', '#ecfeff')}>
-                <UserPlus size={13} />
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button onClick={onAssign} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+                color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+                boxShadow: '0 2px 8px rgba(6,182,212,0.3)',
+              }}>
+                <UserPlus size={14} /> Gán giao nhận
               </button>
               <button title="Sửa" style={actionBtn('#475569', '#f8fafc')}>
                 <Edit2 size={13} />
@@ -194,11 +200,15 @@ function OrderCard({ order, onAssign }: { order: Order; onAssign: () => void }) 
           )}
 
           {order.status === 'assigned' && (
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button onClick={onAssign} title="Đổi giao nhận" style={actionBtn('#2563eb', '#eff6ff')}>
-                <UserPlus size={13} />
-              </button>
-            </div>
+            <button onClick={onAssign} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: '#fff', border: 'none', borderRadius: 8,
+              fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
+            }}>
+              <UserPlus size={14} /> Đổi giao nhận
+            </button>
           )}
 
           {/* Inline delete confirm */}
@@ -242,6 +252,15 @@ function AssignDriverModal({ order, onClose }: { order: Order; onClose: () => vo
       orderId: order.id,
       status: 'assigned',
       assigned_to: selected,
+    })
+    onClose()
+  }
+
+  async function handleUnassign() {
+    await updateStatus.mutateAsync({
+      orderId: order.id,
+      status: 'pending',
+      assigned_to: null,
     })
     onClose()
   }
@@ -321,22 +340,38 @@ function AssignDriverModal({ order, onClose }: { order: Order; onClose: () => vo
         )}
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: 10, border: '1px solid #e2e8f0', borderRadius: 9, background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569', fontFamily: 'Outfit, sans-serif' }}>Huỷ</button>
-          <button
-            onClick={handleAssign}
-            disabled={!selected || updateStatus.isPending}
-            style={{
-              flex: 2, padding: 10, border: 'none', borderRadius: 9,
-              background: selected ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : '#e2e8f0',
-              color: selected ? '#fff' : '#94a3b8',
-              fontSize: 13, fontWeight: 600, cursor: selected ? 'pointer' : 'not-allowed',
-              fontFamily: 'Outfit, sans-serif',
-              boxShadow: selected ? '0 2px 8px rgba(6,182,212,0.3)' : 'none',
-            }}
-          >
-            {updateStatus.isPending ? 'Đang gán...' : '✓ Gán giao nhận'}
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 10, border: '1px solid #e2e8f0', borderRadius: 9, background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569', fontFamily: 'Outfit, sans-serif' }}>Huỷ</button>
+            <button
+              onClick={handleAssign}
+              disabled={!selected || updateStatus.isPending}
+              style={{
+                flex: 2, padding: 10, border: 'none', borderRadius: 9,
+                background: selected ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : '#e2e8f0',
+                color: selected ? '#fff' : '#94a3b8',
+                fontSize: 13, fontWeight: 600, cursor: selected ? 'pointer' : 'not-allowed',
+                fontFamily: 'Outfit, sans-serif',
+                boxShadow: selected ? '0 2px 8px rgba(6,182,212,0.3)' : 'none',
+              }}
+            >
+              {updateStatus.isPending ? 'Đang gán...' : '✓ Gán giao nhận'}
+            </button>
+          </div>
+          {order.status === 'assigned' && (
+            <button
+              onClick={handleUnassign}
+              disabled={updateStatus.isPending}
+              style={{
+                width: '100%', padding: 9, border: '1px solid rgba(225,29,72,0.2)', borderRadius: 9,
+                background: '#fff1f2', color: '#e11d48', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <XCircle size={13} /> Huỷ gán — đưa về Chờ xử lý
+            </button>
+          )}
         </div>
       </div>
     </div>
