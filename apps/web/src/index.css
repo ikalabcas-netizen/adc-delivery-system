@@ -7,89 +7,76 @@
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
   }
 
   :root {
-    /* ADC Brand Tokens */
     --adc-cyan:     #06b6d4;
     --adc-dark:     #0891b2;
     --adc-navy:     #164e63;
     --adc-navy-950: #0a3444;
-
-    /* Animation */
-    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-    --dur-fast:    150ms;
-    --dur-base:    200ms;
-    --dur-slow:    300ms;
+    --ease-smooth:  cubic-bezier(0.4, 0, 0.2, 1);
+    --dur-fast:     150ms;
+    --dur-base:     200ms;
+    --dur-slow:     300ms;
   }
 
-  html {
+  html,
+  body {
+    width: 100%;
     height: 100%;
     scroll-behavior: smooth;
-  }
-
-  body {
-    height: 100%;
     font-family: 'Outfit', system-ui, sans-serif;
-    @apply bg-surface-page text-slate-800 antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f8fafc;
+    color: #1e293b;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   #root {
+    width: 100%;
     height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400; }
+  /* Scrollbar */
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 }
 
 @layer components {
-  /* ─── Status Badges ─────────────────────────────── */
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-  .badge-pending    { @apply badge bg-amber-100  text-amber-700; }
-  .badge-assigned   { @apply badge bg-blue-100   text-blue-700; }
-  .badge-in-transit { @apply badge bg-violet-100 text-violet-700; }
-  .badge-delivered  { @apply badge bg-green-100  text-green-700; }
-  .badge-failed     { @apply badge bg-red-100    text-red-700; }
-  .badge-cancelled  { @apply badge bg-slate-100  text-slate-600; }
+  /* Status Badges */
+  .badge           { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+  .badge-pending   { @apply badge bg-amber-100  text-amber-700;  }
+  .badge-assigned  { @apply badge bg-blue-100   text-blue-700;   }
+  .badge-in-transit{ @apply badge bg-violet-100 text-violet-700; }
+  .badge-delivered { @apply badge bg-green-100  text-green-700;  }
+  .badge-failed    { @apply badge bg-red-100    text-red-700;    }
+  .badge-cancelled { @apply badge bg-slate-100  text-slate-600;  }
 
-  /* ─── Navigation ────────────────────────────────── */
+  /* Sidebar nav */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-           text-white/70 transition-all duration-[var(--dur-base)] ease-[var(--ease-smooth)]
-           hover:bg-white/10 hover:text-white;
+           text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white;
   }
-  .nav-item-active {
-    @apply nav-item bg-white/15 text-white;
-  }
+  .nav-item-active { @apply nav-item bg-white/15 text-white; }
 
-  /* ─── Cards ─────────────────────────────────────── */
-  .card {
-    @apply bg-white rounded-xl border border-surface-border shadow-sm;
-  }
-  .card-hover {
-    @apply card transition-shadow duration-[var(--dur-base)] hover:shadow-md;
-  }
+  /* Card */
+  .card        { @apply bg-white rounded-xl border border-slate-200 shadow-sm; }
+  .card-hover  { @apply card transition-shadow duration-200 hover:shadow-md; }
 
-  /* ─── Map container ──────────────────────────────── */
-  .map-container {
-    @apply w-full h-full rounded-xl overflow-hidden;
-  }
+  /* Map */
+  .map-container { @apply w-full h-full rounded-xl overflow-hidden; }
 
-  /* ─── Page layout ───────────────────────────────── */
-  .page-content {
-    @apply p-6 space-y-6 animate-fade-in;
-  }
+  /* Page */
+  .page-content { @apply p-6 space-y-6 animate-fade-in; }
 }
 
-/* ─── Mapbox overrides ──────────────────────────────── */
-.mapboxgl-popup-content {
-  @apply rounded-xl shadow-lg border border-surface-border p-3 text-sm font-[Outfit];
-}
-.mapboxgl-ctrl-attrib { font-family: 'Outfit', sans-serif; }
-
+/* Mapbox */
+.mapboxgl-popup-content { @apply rounded-xl shadow-lg border border-slate-200 p-3 text-sm; font-family: 'Outfit', sans-serif; }
+.mapboxgl-ctrl-attrib   { font-family: 'Outfit', sans-serif; }
