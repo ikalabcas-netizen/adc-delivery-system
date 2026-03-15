@@ -1,0 +1,212 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (59,30)<a class='link-module__Q1NRQq__link flex-1 flex flex-row items-center gap-2 pl-2.5 md:pr-1 py-2 min-w-0 group/owner-breadcrumb' href='/ikalabcas-netizens-projects' />
+	[1] (15,30)<span class='avatar-module__rHmbGW__avatar !border-0 after:!border-0' role='img' />
+	[2] (68,30)<span  />
+		[3] (53,30)<span >ikalabcas-netizen's projects />
+		[4] (99,30)<span  />
+			[5] (99,30)<span >Hobby />
+[6] (121,30)<button class='relative group/scope-button flex-none flex flex-row items-center py-2 h-[inherit] text-left [font:inherit] [-webkit-tap-highlight-color:transparent] bg-transparent text-inherit rounded-[inherit] hover:bg-gray-100 focus-visible:bg-gray-100 cursor-pointer min-w-0 z-10 px-0 gap-0 before:absolute before:-inset-2 before:content-[""] font-medium' />
+[7] (66,78)<button class='relative z-[calc(var(--header-zindex)_+_1)] cursor-pointer overflow-visible border-0 bg-transparent p-0 [webkit-tap-highlight-color:transparent] focus-visible:outline-focus focus-visible:outline-2 focus-visible:outline-offset-[3px] rounded-full md:rounded h-9 w-full md:cursor-text pointer-events-auto' />
+	[8] (66,78)<span  />
+		[9] (14,78)<span  />
+		[10] (66,78)<span >Find… />
+		[11] (119,78)<span  />
+			[12] (119,78)<kbd  />
+				[13] (119,78)<span >F />
+[14] (66,125)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group bg-gray-200 active:bg-gray-300 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web' />
+	[15] (15,125)<div  />
+		[16] (15,125)<span aria-label='Other' class='avatar-module__rHmbGW__avatar backdrop-filter-none bg-background-100/80 shadow-[0_0_0_1px] shadow-background-100 backdrop-blur-[2px]' role='img' />
+			[17] (15,125)<img  />
+	[18] (76,125)<span  />
+		[19] (39,125)<span >Overview />
+[20] (66,164)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/deployments' />
+	[21] (15,164)<div  />
+	[22] (76,164)<span  />
+		[23] (46,164)<span >Deployments />
+[24] (66,203)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/logs' />
+	[25] (15,203)<div  />
+	[26] (76,203)<span  />
+		[27] (32,203)<span >Logs />
+[28] (66,242)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/analytics' />
+	[29] (15,242)<div  />
+	[30] (76,242)<span  />
+		[31] (39,242)<span >Analytics />
+[32] (66,281)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/speed-insights' />
+	[33] (15,281)<div  />
+	[34] (76,281)<span  />
+		[35] (48,281)<span >Speed Insights />
+[36] (66,321)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/observability' />
+	[37] (15,321)<div  />
+	[38] (68,321)<span  />
+		[39] (46,321)<span >Observability />
+	[40] (119,321)<span  />
+[41] (66,360)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/firewall' />
+	[42] (15,360)<div  />
+	[43] (68,360)<span  />
+		[44] (37,360)<span >Firewall />
+	[45] (119,360)<span  />
+[46] (66,399)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/cdn' />
+	[47] (15,399)<div  />
+	[48] (68,399)<span  />
+		[49] (32,399)<span >CDN />
+	[50] (119,399)<span  />
+[51] (66,449)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/settings/domains' />
+	[52] (15,449)<div  />
+	[53] (76,449)<span  />
+		[54] (38,449)<span >Domains />
+[55] (66,488)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/settings/integrations' />
+	[56] (15,488)<div  />
+	[57] (76,488)<span  />
+		[58] (44,488)<span >Integrations />
+[59] (66,527)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/stores' />
+	[60] (15,527)<div  />
+	[61] (76,527)<span  />
+		[62] (37,527)<span >Storage />
+[63] (66,566)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/flags' />
+	[64] (15,566)<div  />
+	[65] (68,566)<span  />
+		[66] (33,566)<span >Flags />
+	[67] (119,566)<span  />
+[68] (66,605)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/agent' />
+	[69] (15,605)<div  />
+	[70] (68,605)<span  />
+		[71] (34,605)<span >Agent />
+	[72] (119,605)<span  />
+[73] (66,644)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/ai-gateway' />
+	[74] (15,644)<div  />
+	[75] (68,644)<span  />
+		[76] (42,644)<span >AI Gateway />
+	[77] (119,644)<span  />
+[78] (66,684)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/sandboxes' />
+	[79] (15,684)<div  />
+	[80] (76,684)<span  />
+		[81] (42,684)<span >Sandboxes />
+[82] (66,733)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/usage' />
+	[83] (15,733)<div  />
+	[84] (76,733)<span  />
+		[85] (34,733)<span >Usage />
+[86] (66,772)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/settings' />
+	[87] (15,772)<div  />
+	[88] (68,772)<span  />
+		[89] (38,772)<span >Settings />
+	[90] (119,772)<span  />
+[91] (58,972)<button class='group/row relative flex w-full items-center gap-2 h-9 min-w-0 bg-transparent cursor-pointer rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2 pl-2.5 pr-2 after:absolute after:inset-0 after:right-2 after:-bottom-2' />
+	ikalabcas-netizen
+[92] (118,972)<button aria-label='4 unseen notifications' class='bell-module__AXcxMG__btn bell-module__AXcxMG__shadow bell-module__AXcxMG__dash' />
+[93] (133,500)<button aria-label='Toggle sidebar' class='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-6 rounded-full bg-background-100 border border-gray-400 grid place-content-center opacity-0 group-hover:opacity-100 cursor-pointer hover:bg-gray-100 hover:border-gray-500 before:absolute before:-inset-x-2 before:-inset-y-6 before:content-[''] [html.sidebar-collapsed_&]:hidden [html.sidebar-gesture-active_&]:!opacity-0 [html.sidebar-gesture-active_&]:pointer-events-none' />
+[94] (195,29)<a class='link-module__Q1NRQq__link flex-1 flex flex-row items-center gap-2 pl-2.5 md:pr-1 py-2 min-w-0 group/owner-breadcrumb' href='/ikalabcas-netizens-projects/adc-delivery-system-web' />
+	[95] (151,29)<span aria-label='Other' class='avatar-module__rHmbGW__avatar !border-0 after:!border-0 bg-background-100/80 shadow-[0_0_0_1px] shadow-background-100 backdrop-blur-[2px]' role='img' />
+		[96] (151,29)<img  />
+	[97] (203,29)<span  />
+		[98] (203,29)<span >adc-delivery-system-web />
+[99] (257,29)<button class='relative group/scope-button flex-none flex flex-row items-center py-2 h-[inherit] text-left [font:inherit] [-webkit-tap-highlight-color:transparent] bg-transparent text-inherit rounded-[inherit] hover:bg-gray-100 focus-visible:bg-gray-100 cursor-pointer min-w-0 z-10 px-0 gap-0 before:absolute before:-inset-2 before:content-[""] font-medium' />
+[100] (275,29)<a aria-label='Back to team view' class='link-module__Q1NRQq__link rounded flex flex-row items-center px-1.5 py-2 bg-transparent cursor-pointer min-w-0 text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-[opacity,transform] delay-75 -translate-x-0.5 group-hover:translate-x-0 focus:translate-x-0' href='/ikalabcas-netizens-projects' title='Back to team view' />
+	[101] (275,29)<span  />
+Overview
+[102] (983,29)<button aria-label='Open page actions menu' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__small button-module__QyrFCa__invert' />
+	[103] (983,29)<span  />
+Production Deployment
+[104] (704,114)<a class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__secondary button-module__QyrFCa__small button-module__QyrFCa__invert' href='https://github.com/ikalabcas-netizen/adc-delivery-system/tree/main/apps/web' role='link' />
+	[105] (682,114)<span  />
+	[106] (710,114)<span >Repository />
+[107] (784,114)<button class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__secondary button-module__QyrFCa__small button-module__QyrFCa__invert' />
+	[108] (784,114)<span  />
+		[109] (784,114)<div  />
+			[110] (790,114)<span >Rollback />
+				[111] (775,114)<span >Instant />
+[112] (843,114)<a class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__small button-module__QyrFCa__invert' href='https://adc-delivery-system-web.vercel.app' role='link' />
+	[113] (843,114)<span >Visit />
+[114] (865,114)<button aria-label='Visit with' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__small button-module__QyrFCa__invert' id='menu-button-_r_77_' />
+	[115] (865,114)<span  />
+[116] (378,308)<a aria-label='Visit Deployment' class='link-module__Q1NRQq__link' href='https://adc-delivery-system-web.vercel.app' />
+	[117] (378,308)<span  />
+		[118] (378,308)<div  />
+			[119] (378,308)<canvas aria-label='Preview Screenshot of adc-delivery-system-web.vercel.app' class='absolute hidden size-full dark:block size-full animate-blurIn' role='img' />
+Deployment
+[120] (630,201)<a class='link-module__Q1NRQq__link font-medium text-gray-1000 no-underline hover:underline' href='/ikalabcas-netizens-projects/adc-delivery-system-web/4d7m7cRQg96KhrZtRiBNXzyPEciq'>adc-delivery-system-beex0951e-ikalabcas-netizens-projects.vercel.app />
+[121] (858,189)<a class='link-module__Q1NRQq__link' href='/ikalabcas-netizens-projects/adc-delivery-system-web/speed-insights' />
+	[122] (858,189)<span class='tooltip-module__VEGyfq__container' />
+		[123] (858,189)<div class='gauge-module__U3a4pa__circle gauge-module__U3a4pa__animate' role='progressbar' />
+			[124] (858,189)<div  />
+				[125] (858,189)<span  />
+Domains
+[126] (544,242)<a class='link-module__Q1NRQq__link' href='/ikalabcas-netizens-projects/adc-delivery-system-web/settings/domains' />
+[127] (573,268)<a class='link-module__Q1NRQq__link link-module__Q1NRQq__external pt-px leading-[16px] hover:underline' href='https://adc-delivery-system-web.vercel.app' />
+	[128] (568,269)<span >adc-delivery-system-web.vercel.app />
+Status
+Ready
+Created
+[129] (607,337)<div  />
+	[130] (599,337)<p >59m ago
+by ikalabcas-netizen />
+	[131] (659,337)<div  />
+		[132] (659,337)<span aria-label='github/ikalabcas-netizen' class='avatar-module__rHmbGW__avatar' role='img' />
+Source
+[133] (525,407)<a class='link-module__Q1NRQq__link z-[2] flex shrink gap-2 truncate' href='https://github.com/ikalabcas-netizen/adc-delivery-system/tree/main' title='Git Branch' />
+	[134] (525,407)<code >main />
+[135] (620,431)<a class='link-module__Q1NRQq__link z-[2] flex shrink gap-2 truncate' href='https://github.com/ikalabcas-netizen/adc-delivery-system/commit/f0181bd469454707e7eaa2386ec084cf918b24f0' title='Git Commit' />
+	[136] (531,431)<code >f0181bd />
+	[137] (637,431)<span >chore: trigger vercel redeploy with updated API keys />
+[138] (567,497)<button class='ease flex h-12 w-full items-center justify-between border-0 border-t border-gray-alpha-400 bg-transparent px-4 transition-all duration-200 disabled:text-gray-900 cursor-pointer' id='radix-_r_6r_' />
+	[139] (567,497)<span  />
+		[140] (573,497)<span  />
+			[141] (311,497)<span >Deployment Settings />
+			[142] (386,497)<span  />
+				[143] (386,497)<div  />
+					[144] (386,497)<div  />
+						[145] (386,497)<span  />
+							[146] (386,497)<span  />
+								[147] (386,497)<span >4
+Recommendation
+s />
+To update your Production Deployment, push to the
+main
+branch.
+[148] (820,548)<a class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__secondary button-module__QyrFCa__small button-module__QyrFCa__invert' href='/ikalabcas-netizens-projects/adc-delivery-system-web/deployments?environment=production' role='link' />
+	[149] (793,548)<span  />
+	[150] (825,548)<span >Deployments />
+[151] (867,548)<a aria-label='Learn more' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__secondary button-module__QyrFCa__shape button-module__QyrFCa__small button-module__QyrFCa__invert' href='/docs/git#production-branch' role='link' />
+	[152] (867,548)<span  />
+Production Checklist
+1/5
+[153] (444,615)<button aria-label='Go to page' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset z-[2] !text-gray-800 group-hover:!text-gray-1000 group-[&:not(:has(a[target]:hover)):hover]:bg-gray-alpha-200 geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__tiny button-module__QyrFCa__invert' />
+	[154] (444,615)<span  />
+[155] (356,615)<div class='absolute inset-0 z-[1] block cursor-pointer' role='button' />
+[156] (356,741)<div class='scroller-module__6hSglq__scroller' scrollable='true' />
+	[157] (356,660)<div class='flex items-center gap-3 py-2 pl-3 pr-2.5 rounded-[6px] cursor-pointer bg-blue-300 text-blue-900' role='button' />
+		[158] (322,660)<span >Connect Git Repository />
+	[159] (356,702)<div class='flex items-center gap-3 py-2 pl-3 pr-2.5 rounded-[6px] cursor-pointer bg-gray-alpha-100 text-gray-900' role='button' />
+		[160] (318,702)<span >Add Custom Domain />
+		[161] (368,702)<span class='tooltip-module__VEGyfq__container' />
+			[162] (368,702)<span  />
+				[163] (368,702)<span >Sale />
+	[164] (356,744)<div class='flex items-center gap-3 py-2 pl-3 pr-2.5 rounded-[6px] cursor-pointer bg-gray-alpha-100 text-gray-900' role='button' />
+		[165] (318,744)<span >Preview Deployment />
+	[166] (356,787)<div class='flex items-center gap-3 py-2 pl-3 pr-2.5 rounded-[6px] cursor-pointer bg-gray-alpha-100 text-gray-900' role='button' />
+		[167] (319,787)<span >Enable Web Analytics />
+	[168] (356,829)<div class='flex items-center gap-3 py-2 pl-3 pr-2.5 rounded-[6px] cursor-pointer bg-gray-alpha-100 text-gray-900' role='button' />
+		[169] (320,829)<span >Enable Speed Insights />
+Observability
+6h
+[170] (656,615)<a aria-label='Go to page' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset z-[2] !text-gray-800 group-hover:!text-gray-1000 group-[&:not(:has(a[target]:hover)):hover]:bg-gray-alpha-200 geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__tiny button-module__QyrFCa__invert' href='/ikalabcas-netizens-projects/adc-delivery-system-web/observability?period=6h' role='link' />
+	[171] (656,615)<span  />
+[172] (567,615)<a class='link-module__Q1NRQq__link absolute inset-0 z-[1] block' href='/ikalabcas-netizens-projects/adc-delivery-system-web/observability?period=6h' />
+Edge Requests
+63
+Function Invocations
+0
+Error Rate
+0%
+Analytics
+[173] (867,615)<a aria-label='Go to page' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset z-[2] !text-gray-800 group-hover:!text-gray-1000 group-[&:not(:has(a[target]:hover)):hover]:bg-gray-alpha-200 geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__tiny button-module__QyrFCa__invert' href='/ikalabcas-netizens-projects/adc-delivery-system-web/analytics' role='link' />
+	[174] (867,615)<span  />
+[175] (778,615)<a class='link-module__Q1NRQq__link absolute inset-0 z-[1] block' href='/ikalabcas-netizens-projects/adc-delivery-system-web/analytics' />
+Track visitors and page views
+[176] (778,736)<a class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset text-label-14 font-medium geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__small button-module__QyrFCa__invert' href='/ikalabcas-netizens-projects/adc-delivery-system-web/analytics?enable=1&source=project-overview-analytics-card' role='link' />
+	[177] (778,736)<span >Enable />
+Active Branches
+
+</current_dom>

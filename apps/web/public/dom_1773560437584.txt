@@ -1,0 +1,232 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (59,30)<a class='link-module__Q1NRQq__link flex-1 flex flex-row items-center gap-2 pl-2.5 md:pr-1 py-2 min-w-0 group/owner-breadcrumb' href='/ikalabcas-netizens-projects' />
+	[1] (15,30)<span class='avatar-module__rHmbGW__avatar !border-0 after:!border-0' role='img' />
+	[2] (68,30)<span  />
+		[3] (53,30)<span >ikalabcas-netizen's projects />
+		[4] (99,30)<span  />
+			[5] (99,30)<span >Hobby />
+[6] (121,30)<button class='relative group/scope-button flex-none flex flex-row items-center py-2 h-[inherit] text-left [font:inherit] [-webkit-tap-highlight-color:transparent] bg-transparent text-inherit rounded-[inherit] hover:bg-gray-100 focus-visible:bg-gray-100 cursor-pointer min-w-0 z-10 px-0 gap-0 before:absolute before:-inset-2 before:content-[""] font-medium' />
+[7] (66,78)<button class='relative z-[calc(var(--header-zindex)_+_1)] cursor-pointer overflow-visible border-0 bg-transparent p-0 [webkit-tap-highlight-color:transparent] focus-visible:outline-focus focus-visible:outline-2 focus-visible:outline-offset-[3px] rounded-full md:rounded h-9 w-full md:cursor-text pointer-events-auto' />
+	[8] (66,78)<span  />
+		[9] (14,78)<span  />
+		[10] (66,78)<span >Find… />
+		[11] (119,78)<span  />
+			[12] (119,78)<kbd  />
+				[13] (119,78)<span >F />
+[14] (66,125)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group bg-gray-200 active:bg-gray-300 @md-page:pl-0.5' href='/ikalabcas-netizens-projects' />
+	[15] (15,125)<div  />
+	[16] (76,125)<span  />
+		[17] (38,125)<span >Projects />
+[18] (66,164)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/deployments' />
+	[19] (15,164)<div  />
+	[20] (76,164)<span  />
+		[21] (46,164)<span >Deployments />
+[22] (66,203)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/logs' />
+	[23] (15,203)<div  />
+	[24] (76,203)<span  />
+		[25] (32,203)<span >Logs />
+[26] (66,242)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/analytics' />
+	[27] (15,242)<div  />
+	[28] (76,242)<span  />
+		[29] (39,242)<span >Analytics />
+[30] (66,281)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/speed-insights' />
+	[31] (15,281)<div  />
+	[32] (76,281)<span  />
+		[33] (48,281)<span >Speed Insights />
+[34] (66,321)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/observability' />
+	[35] (15,321)<div  />
+	[36] (68,321)<span  />
+		[37] (46,321)<span >Observability />
+	[38] (119,321)<span  />
+[39] (66,360)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/firewall' />
+	[40] (15,360)<div  />
+	[41] (76,360)<span  />
+		[42] (37,360)<span >Firewall />
+[43] (66,399)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/cdn' />
+	[44] (15,399)<div  />
+	[45] (76,399)<span  />
+		[46] (32,399)<span >CDN />
+[47] (66,449)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/domains' />
+	[48] (15,449)<div  />
+	[49] (76,449)<span  />
+		[50] (38,449)<span >Domains />
+[51] (66,488)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/integrations' />
+	[52] (15,488)<div  />
+	[53] (76,488)<span  />
+		[54] (44,488)<span >Integrations />
+[55] (66,527)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/stores' />
+	[56] (15,527)<div  />
+	[57] (76,527)<span  />
+		[58] (37,527)<span >Storage />
+[59] (66,566)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/experimentation/collections' />
+	[60] (15,566)<div  />
+	[61] (76,566)<span  />
+		[62] (33,566)<span >Flags />
+[63] (66,605)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/agent' />
+	[64] (15,605)<div  />
+	[65] (68,605)<span  />
+		[66] (34,605)<span >Agent />
+	[67] (119,605)<span  />
+[68] (66,644)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/ai-gateway' />
+	[69] (15,644)<div  />
+	[70] (68,644)<span  />
+		[71] (42,644)<span >AI Gateway />
+	[72] (119,644)<span  />
+[73] (66,684)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/sandboxes' />
+	[74] (15,684)<div  />
+	[75] (76,684)<span  />
+		[76] (42,684)<span >Sandboxes />
+[77] (66,733)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/usage' />
+	[78] (15,733)<div  />
+	[79] (76,733)<span  />
+		[80] (34,733)<span >Usage />
+[81] (66,772)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/support' />
+	[82] (15,772)<div  />
+	[83] (76,772)<span  />
+		[84] (37,772)<span >Support />
+[85] (66,812)<a class='link-module__Q1NRQq__link flex flex-row items-center h-9 origin-left rounded-md @md-page:rounded group text-gray-900 hover:bg-gray-100 focus-visible:bg-gray-100 hover:text-gray-1000 focus-visible:text-gray-1000 @md-page:pl-0.5' href='/ikalabcas-netizens-projects/~/settings' />
+	[86] (15,812)<div  />
+	[87] (68,812)<span  />
+		[88] (38,812)<span >Settings />
+	[89] (119,812)<span  />
+[90] (58,972)<button class='group/row relative flex w-full items-center gap-2 h-9 min-w-0 bg-transparent cursor-pointer rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus focus-visible:-outline-offset-2 pl-2.5 pr-2 after:absolute after:inset-0 after:right-2 after:-bottom-2' />
+	ikalabcas-netizen
+[91] (118,972)<button aria-label='4 unseen notifications' class='bell-module__AXcxMG__btn bell-module__AXcxMG__shadow bell-module__AXcxMG__dash' />
+[92] (133,500)<button aria-label='Toggle sidebar' class='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-6 rounded-full bg-background-100 border border-gray-400 grid place-content-center opacity-0 group-hover:opacity-100 cursor-pointer hover:bg-gray-100 hover:border-gray-500 before:absolute before:-inset-x-2 before:-inset-y-6 before:content-[''] [html.sidebar-collapsed_&]:hidden [html.sidebar-gesture-active_&]:!opacity-0 [html.sidebar-gesture-active_&]:pointer-events-none' />
+[93] (172,29)<button class='relative group/scope-button flex-none flex flex-row items-center py-2 h-[inherit] text-left [font:inherit] [-webkit-tap-highlight-color:transparent] bg-transparent rounded-[inherit] hover:bg-gray-100 focus-visible:bg-gray-100 cursor-pointer min-w-0 z-10 pl-3 pr-0.5 font-normal text-gray-800 hover:text-gray-900 focus-visible:text-gray-900' />
+	[94] (167,29)<span >All
+project
+s />
+	[95] (194,29)<div  />
+Overview
+[96] (983,29)<button aria-label='Open page actions menu' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__small button-module__QyrFCa__invert' />
+	[97] (983,29)<span  />
+[98] (501,106)<input aria-label='Search' class='input-module__q7zwrG__input focus-visible' id='input-_R_2lav5ubsnpcnqsnlpr5u7j5u5acmlb_' placeholder='Search Projects…' />
+[99] (223,106)<label  />
+[100] (790,106)<button aria-label='Filter and Sort Projects' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__secondary button-module__QyrFCa__shape button-module__QyrFCa__invert' id='menu-button-_R_35av5ubsnpcnqsnlpr5u7j5u5acmlbH1_' />
+	[101] (790,106)<span  />
+[102] (817,106)<label class='switch-control-module__WvDOda__container' />
+	[103] (817,106)<div >grid />
+		grid
+[104] (838,106)<label class='switch-control-module__WvDOda__container' />
+	[105] (838,106)<div >list />
+		list
+[106] (888,106)<button class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset geist-hide-on-mobile button-module__QyrFCa__invert' id='menu-button-_R_n5av5ubsnpcnqsnlpr5u7j5u5acmlbH1_' />
+	[107] (880,106)<span >Add New... />
+	[108] (910,106)<span  />
+[109] (226,169)<a class='link-module__Q1NRQq__link text-label-14 font-medium text-gray-1000 w-fit hover:underline' href='/ikalabcas-netizens-projects/~/usage'>Usage />
+[110] (299,229)<a class='link-module__Q1NRQq__link min-w-0 text-inherit no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 m-0 font-medium leading-6' href='/ikalabcas-netizens-projects/~/usage'>Last 30 days />
+[111] (398,229)<button class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset !h-6 !px-2 *:text-label-12 *:px-0 *:font-medium button-module__QyrFCa__small button-module__QyrFCa__invert' />
+	[112] (398,229)<span >Upgrade />
+[113] (318,275)<a class='link-module__Q1NRQq__link items-center flex h-8 min-w-0 flex-1 flex-row gap-1.5 p-2' href='/ikalabcas-netizens-projects/~/usage/vercel-functions-fluid-cpu-duration' />
+	[114] (225,275)<div class='gauge-module__U3a4pa__circle shrink-0 *:size-4 gauge-module__U3a4pa__animate' role='progressbar' />
+	[115] (304,275)<span >Fluid Active CPU />
+	[116] (397,275)<span >2m 28s
+/ />
+		[117] (411,275)<span >4h />
+[118] (318,309)<a class='link-module__Q1NRQq__link items-center flex h-8 min-w-0 flex-1 flex-row gap-1.5 p-2' href='/ikalabcas-netizens-projects/~/usage/vercel-functions-fluid-duration' />
+	[119] (225,309)<div class='gauge-module__U3a4pa__circle shrink-0 *:size-4 gauge-module__U3a4pa__animate' role='progressbar' />
+	[120] (286,309)<span >Fluid Provisioned Memory />
+	[121] (378,309)<span >1.6 GB-Hrs
+/ />
+		[122] (397,309)<span >360 GB-Hrs />
+[123] (318,343)<a class='link-module__Q1NRQq__link items-center flex h-8 min-w-0 flex-1 flex-row gap-1.5 p-2' href='/ikalabcas-netizens-projects/~/usage/vercel-functions-invocations' />
+	[124] (225,343)<div class='gauge-module__U3a4pa__circle shrink-0 *:size-4 gauge-module__U3a4pa__animate' role='progressbar' />
+	[125] (308,343)<span >Function Invocations />
+	[126] (400,343)<span >3.5K
+/ />
+		[127] (410,343)<span >1M />
+[128] (225,377)<div class='gauge-module__U3a4pa__circle shrink-0 *:size-4 gauge-module__U3a4pa__animate' role='progressbar' />
+[129] (308,377)<span >Edge Requests />
+[130] (400,377)<span >3.5K
+/ />
+	[131] (410,377)<span >1M />
+Fast Origin Transfer
+12.12 MB
+/
+10 GB
+ISR Reads
+563
+/
+1M
+Fast Data Transfer
+20.71 MB
+/
+100 GB
+Edge Request CPU Duration
+0s
+/
+1h
+Microfrontends Routing
+0
+/
+50K
+ISR Writes
+0
+/
+200K
+[132] (318,389)<button aria-label='Show More Usage' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset z-[2] absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 @max-smd-page:hidden button-module__QyrFCa__secondary button-module__QyrFCa__shape button-module__QyrFCa__circle button-module__QyrFCa__tiny button-module__QyrFCa__invert' />
+	[133] (318,389)<span  />
+[134] (226,432)<a class='link-module__Q1NRQq__link text-label-14 font-medium text-gray-1000 w-fit hover:underline' href='/ikalabcas-netizens-projects/~/observability/alerts'>Alerts />
+Get alerted for anomalies
+Automatically monitor your projects for anomalies and get notified.
+[135] (318,594)<button class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset button-module__QyrFCa__secondary button-module__QyrFCa__small button-module__QyrFCa__invert' />
+	[136] (318,594)<span >Upgrade to Observability Plus />
+Recent Previews
+Preview deployments that you have recently visited or created will appear here.
+Projects
+[137] (554,284)<a class='link-module__Q1NRQq__link absolute inset-0' href='/ikalabcas-netizens-projects/adc-delivery-system-web' />
+[138] (452,238)<a class='link-module__Q1NRQq__link h-8' href='/ikalabcas-netizens-projects/adc-delivery-system-web' />
+	[139] (452,238)<div  />
+		[140] (452,238)<span class='avatar-module__rHmbGW__avatar cursor-pointer' role='img' />
+			[141] (452,238)<img  />
+[142] (513,226)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 font-medium text-gray-1000 h-5 w-fit max-w-full' href='/ikalabcas-netizens-projects/adc-delivery-system-web' />
+	[143] (513,226)<span  />
+		[144] (481,226)<span >adc-de />
+		[145] (511,226)<span >livery-syst />
+		[146] (543,226)<span >em-web />
+[147] (529,250)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 text-gray-900 h-5 truncate w-fit leading-5 max-w-full' href='https://adc-delivery-system-web.vercel.app'>adc-delivery-system-web.vercel.app />
+[148] (630,238)<a class='link-module__Q1NRQq__link inline-flex' href='/ikalabcas-netizens-projects/adc-delivery-system-web#production-checklist' />
+	[149] (630,238)<span class='tooltip-module__VEGyfq__container' />
+		[150] (630,238)<div class='gauge-module__U3a4pa__circle text-blue-900 gauge-module__U3a4pa__animate' role='progressbar' />
+			[151] (630,238)<div  />
+				[152] (630,238)<span  />
+[153] (655,238)<button aria-label='Project Menu' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__small button-module__QyrFCa__invert' id='menu-button-_r_64_' />
+	[154] (655,238)<span  />
+[155] (494,284)<a class='link-module__Q1NRQq__link flex min-w-0 flex-none flex-row items-center gap-0.5 rounded-full bg-gray-300 p-0.5 pr-1.5 w-fit max-w-48' href='/ikalabcas-netizens-projects?repo=https://github.com/ikalabcas-netizen/adc-delivery-system' />
+	[156] (498,284)<span >ikalabcas-netizen/adc-delivery-system />
+[157] (554,317)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 text-gray-1000 font-medium truncate h-5' href='/ikalabcas-netizens-projects/adc-delivery-system-web/4d7m7cRQg96KhrZtRiBNXzyPEciq'>chore: trigger vercel redeploy with updated API keys />
+[158] (459,341)<div  />
+	[159] (459,341)<span >59m ago />
+on
+[160] (504,341)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-13-mono text-gray-900 truncate' href='/ikalabcas-netizens-projects/adc-delivery-system-web/deployments?filterBranch=main'>main />
+[161] (803,284)<a class='link-module__Q1NRQq__link absolute inset-0' href='/ikalabcas-netizens-projects/ai-content-factory' />
+[162] (701,238)<a class='link-module__Q1NRQq__link h-8' href='/ikalabcas-netizens-projects/ai-content-factory' />
+	[163] (701,238)<div  />
+		[164] (701,238)<span class='avatar-module__rHmbGW__avatar cursor-pointer' role='img' />
+			[165] (701,238)<img  />
+[166] (749,226)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 font-medium text-gray-1000 h-5 w-fit max-w-full' href='/ikalabcas-netizens-projects/ai-content-factory' />
+	[167] (749,226)<span  />
+		[168] (728,226)<span >ai-con />
+		[169] (749,226)<span >tent-f />
+		[170] (770,226)<span >actory />
+[171] (777,250)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 text-gray-900 h-5 truncate w-fit leading-5 max-w-full' href='https://ai-content-factory-black.vercel.app'>ai-content-factory-black.vercel.app />
+[172] (879,238)<a class='link-module__Q1NRQq__link inline-flex' href='/ikalabcas-netizens-projects/ai-content-factory#production-checklist' />
+	[173] (879,238)<span class='tooltip-module__VEGyfq__container' />
+		[174] (879,238)<div class='gauge-module__U3a4pa__circle text-blue-900 gauge-module__U3a4pa__animate' role='progressbar' />
+			[175] (879,238)<div  />
+				[176] (879,238)<span  />
+[177] (904,238)<button aria-label='Project Menu' class='button-module__QyrFCa__base reset-module__ylizOa__reset button-module__QyrFCa__button reset-module__ylizOa__reset geist-new-themed geist-new-tertiary geist-new-tertiary-fill button-module__QyrFCa__tertiary button-module__QyrFCa__shape button-module__QyrFCa__small button-module__QyrFCa__invert' id='menu-button-_r_69_' />
+	[178] (904,238)<span  />
+[179] (743,284)<a class='link-module__Q1NRQq__link flex min-w-0 flex-none flex-row items-center gap-0.5 rounded-full bg-gray-300 p-0.5 pr-1.5 w-fit max-w-48' href='/ikalabcas-netizens-projects?repo=https://github.com/ikalabcas-netizen/ai-content-factory' />
+	[180] (747,284)<span >ikalabcas-netizen/ai-content-factory />
+[181] (803,317)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-14 text-gray-1000 font-medium truncate h-5' href='/ikalabcas-netizens-projects/ai-content-factory/2ib1H33ZaEmwHKuHpSE4Mx7nJjdX'>feat(logs): incremental log streaming with cursor-based polling />
+[182] (704,341)<div  />
+	[183] (704,341)<span >3h ago />
+on
+[184] (746,341)<a class='link-module__Q1NRQq__link min-w-0 no-underline hover:underline [&>svg]:align-middle [&:not(:hover)>svg]:hidden [&>svg]:ml-1 text-label-13-mono text-gray-900 truncate' href='/ikalabcas-netizens-projects/ai-content-factory/deployments?filterBranch=main'>main />
+
+</current_dom>
