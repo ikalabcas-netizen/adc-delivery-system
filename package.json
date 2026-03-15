@@ -1,0 +1,23 @@
+{
+  "name": "adc-delivery-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ADC Delivery System - Monorepo (Web + Mobile + Backend)",
+  "workspaces": [
+    "apps/web",
+    "packages/shared-types"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "test:web": "npm run test --workspace=apps/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4"
+  }
+}

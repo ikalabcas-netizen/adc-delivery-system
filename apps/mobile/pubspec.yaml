@@ -1,0 +1,50 @@
+name: adc_delivery_mobile
+description: "ADC Delivery System - Mobile App for Delivery Staff"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.24.0 <3.25.0'  # Pin to Flutter 3.24.x stable
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Supabase
+  supabase_flutter: 2.5.9
+
+  # Maps
+  mapbox_maps_flutter: 2.3.0
+
+  # State management
+  flutter_riverpod: 2.5.1
+  riverpod_annotation: 2.3.5
+
+  # Location / GPS
+  geolocator: 13.0.0
+
+  # Image capture + compression
+  image_picker: 1.1.2
+  image: 4.2.0
+
+  # utilities
+  go_router: 14.2.7
+  intl: 0.19.0
+  shared_preferences: 2.3.2
+  cached_network_image: 3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Code generation
+  build_runner: 2.4.12
+  riverpod_generator: 2.4.3
+  flutter_lints: 4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
