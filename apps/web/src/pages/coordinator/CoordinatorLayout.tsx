@@ -1,17 +1,19 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import { ClipboardList, Map, MapPin, Route as RouteIcon, LogOut, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 const NAV_ITEMS = [
   { to: '/coordinator/orders',    icon: ClipboardList, label: 'Đơn hàng' },
   { to: '/coordinator/trips',     icon: RouteIcon,     label: 'Chuyến đi' },
   { to: '/coordinator/map',       icon: Map,           label: 'Bản đồ realtime' },
   { to: '/coordinator/locations', icon: MapPin,        label: 'Địa điểm' },
+  { to: '/coordinator/profile',   icon: User,          label: 'Hồ sơ' },
 ]
 
 function CoordinatorSidebar() {
   const { profile, signOut } = useAuthStore()
+  const navigate = useNavigate()
 
   return (
     <aside
@@ -48,15 +50,22 @@ function CoordinatorSidebar() {
       </nav>
 
       <div className="p-3 border-t border-white/10">
-        <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
-          <div className="w-7 h-7 rounded-full bg-adc-500/30 flex items-center justify-center">
-            <User size={14} className="text-adc-300" />
-          </div>
+        <button
+          onClick={() => navigate('/coordinator/profile')}
+          className="w-full flex items-center gap-2.5 px-2 py-2 mb-1 rounded-lg hover:bg-white/5 transition-colors text-left"
+        >
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-adc-500/30 flex items-center justify-center">
+              <User size={14} className="text-adc-300" />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-white/90 text-xs font-medium truncate">{profile?.full_name ?? 'Người dùng'}</p>
             <p className="text-white/40 text-[10px] truncate">Điều phối viên</p>
           </div>
-        </div>
+        </button>
         <button
           onClick={signOut}
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors text-xs"
@@ -71,15 +80,10 @@ function CoordinatorSidebar() {
 
 function PlaceholderPage({ title, desc }: { title: string; desc: string }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="page-content"
-    >
+    <div className="page-content">
       <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
       <p className="text-slate-500 text-sm mt-1">{desc}</p>
-    </motion.div>
+    </div>
   )
 }
 
@@ -93,6 +97,7 @@ export function CoordinatorLayout() {
           <Route path="trips"     element={<PlaceholderPage title="Chuyến đi" desc="Quản lý chuyến đi — đang phát triển" />} />
           <Route path="map"       element={<PlaceholderPage title="Bản đồ Realtime" desc="Theo dõi tài xế — đang phát triển" />} />
           <Route path="locations" element={<PlaceholderPage title="Địa điểm" desc="Quản lý địa điểm — đang phát triển" />} />
+          <Route path="profile"   element={<ProfileSettingsPage />} />
           <Route path="*"         element={<PlaceholderPage title="Điều phối" desc="Chọn mục từ menu bên trái" />} />
         </Routes>
       </main>

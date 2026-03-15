@@ -13,13 +13,18 @@ export type UserRole =
 
 // ---- Profiles ----
 export interface Profile {
-  id:          string
-  full_name:   string | null
-  phone:       string | null
-  avatar_url:  string | null
-  role:        UserRole | null
-  is_approved: boolean
-  created_at:  string
+  id:            string
+  email:         string | null
+  full_name:     string | null
+  phone:         string | null
+  avatar_url:    string | null
+  role:          UserRole | null
+  is_approved:   boolean
+  // Delivery-specific fields
+  vehicle_plate: string | null
+  vehicle_type:  string | null
+  home_address:  string | null
+  created_at:    string
 }
 
 // ---- Locations ----

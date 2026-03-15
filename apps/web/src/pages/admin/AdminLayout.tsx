@@ -1,16 +1,18 @@
-import { Routes, Route, NavLink } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Users, ShieldCheck, Settings, LogOut, User } from 'lucide-react'
+import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { Users, Settings, LogOut, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { AdminUsersPage } from './AdminUsersPage'
+import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 const NAV_ITEMS = [
-  { to: '/admin/users',  icon: Users,       label: 'Người dùng' },
-  { to: '/admin/roles',  icon: ShieldCheck, label: 'Phân quyền' },
-  { to: '/admin/system', icon: Settings,    label: 'Hệ thống' },
+  { to: '/admin/users',   icon: Users,       label: 'Người dùng' },
+  { to: '/admin/profile', icon: User,        label: 'Hồ sơ' },
+  { to: '/admin/system',  icon: Settings,    label: 'Hệ thống' },
 ]
 
 function AdminSidebar() {
   const { profile, signOut } = useAuthStore()
+  const navigate = useNavigate()
 
   return (
     <aside
@@ -47,15 +49,23 @@ function AdminSidebar() {
       </nav>
 
       <div className="p-3 border-t border-white/10">
-        <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
-          <div className="w-7 h-7 rounded-full bg-adc-500/30 flex items-center justify-center">
-            <User size={14} className="text-adc-300" />
-          </div>
+        {/* Avatar clickable → profile */}
+        <button
+          onClick={() => navigate('/admin/profile')}
+          className="w-full flex items-center gap-2.5 px-2 py-2 mb-1 rounded-lg hover:bg-white/5 transition-colors text-left"
+        >
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-adc-500/30 flex items-center justify-center">
+              <User size={14} className="text-adc-300" />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-white/90 text-xs font-medium truncate">{profile?.full_name ?? 'Admin'}</p>
             <p className="text-white/40 text-[10px] truncate">Super Admin</p>
           </div>
-        </div>
+        </button>
         <button
           onClick={signOut}
           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors text-xs"
@@ -68,32 +78,27 @@ function AdminSidebar() {
   )
 }
 
-function PlaceholderPage({ title, desc }: { title: string; desc: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className="page-content"
-    >
-      <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
-      <p className="text-slate-500 text-sm mt-1">{desc}</p>
-    </motion.div>
-  )
-}
-
 export function AdminLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       <AdminSidebar />
       <main className="flex-1 overflow-auto bg-surface-page">
         <Routes>
-          <Route path="users"  element={<PlaceholderPage title="Người dùng" desc="Danh sách tài khoản — đang phát triển" />} />
-          <Route path="roles"  element={<PlaceholderPage title="Phân quyền" desc="Duyệt và gán vai trò — đang phát triển" />} />
-          <Route path="system" element={<PlaceholderPage title="Hệ thống" desc="Cấu hình hệ thống — đang phát triển" />} />
-          <Route path="*"      element={<PlaceholderPage title="Admin" desc="Chọn mục từ menu bên trái" />} />
+          <Route path="users"   element={<AdminUsersPage />} />
+          <Route path="profile" element={<ProfileSettingsPage />} />
+          <Route path="system"  element={<PlaceholderPage title="Hệ thống" desc="Cấu hình hệ thống — đang phát triển" />} />
+          <Route path="*"       element={<AdminUsersPage />} />
         </Routes>
       </main>
+    </div>
+  )
+}
+
+function PlaceholderPage({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div className="page-content">
+      <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
+      <p className="text-slate-500 text-sm mt-1">{desc}</p>
     </div>
   )
 }
