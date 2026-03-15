@@ -7,6 +7,7 @@ import { PendingApprovalPage } from '@/pages/PendingApprovalPage'
 import { CoordinatorLayout } from '@/pages/coordinator/CoordinatorLayout'
 import { MonitorLayout } from '@/pages/monitor/MonitorLayout'
 import { AdminLayout } from '@/pages/admin/AdminLayout'
+import { DeliveryLayout } from '@/pages/delivery/DeliveryLayout'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import type { Session } from '@supabase/supabase-js'
 import type { Profile } from '@adc/shared-types'
@@ -84,6 +85,16 @@ function AuthenticatedRoutes({ role }: { role: string }) {
         }
       />
 
+      {/* Delivery */}
+      <Route
+        path="/delivery/*"
+        element={
+          <ProtectedRoute allowedRoles={['delivery']}>
+            <DeliveryLayout />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Default: redirect by role */}
       <Route path="*" element={<RoleRedirect role={role} />} />
     </Routes>
@@ -94,6 +105,6 @@ function RoleRedirect({ role }: { role?: string }) {
   if (role === 'super_admin') return <Navigate to="/admin/users" replace />
   if (role === 'coordinator') return <Navigate to="/coordinator/orders" replace />
   if (role === 'sales' || role === 'manager') return <Navigate to="/monitor/dashboard" replace />
-  if (role === 'delivery') return <Navigate to="/pending" replace />
+  if (role === 'delivery') return <Navigate to="/delivery/profile" replace />
   return <Navigate to="/pending" replace />
 }

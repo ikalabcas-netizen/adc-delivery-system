@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { MapPin, Search, Plus, Edit2, Trash2, X, Check, Navigation } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { MapPin, Search, Plus, Edit2, Trash2, X, Check, Navigation, Crosshair, Loader } from 'lucide-react'
 import { useLocations, useCreateLocation, useUpdateLocation, useDeleteLocation } from '@/hooks/useLocations'
 import { useDeliveryRoutes } from '@/hooks/useDeliveryRoutes'
 import type { Location } from '@adc/shared-types'
@@ -177,6 +177,120 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
   const [lng, setLng]         = useState(location?.lng?.toString() ?? '')
   const [routeId, setRouteId] = useState(location?.route_id ?? '')
   const [error, setError]     = useState('')
+  const [geocoding, setGeocoding] = useState(false)
+  const [geocodeMsg, setGeocodeMsg] = useState('')
+  const miniMapRef = useRef<HTMLDivElement>(null)
+  const miniMapInstance = useRef<any>(null)
+  const markerRef = useRef<any>(null)
+
+  // Initialize mini-map
+  useEffect(() => {
+    let map: any = null
+    async function init() {
+      if (!miniMapRef.current) return
+      try {
+        const { mapboxgl, MAPBOX_STYLE, VN_CENTER } = await import('@/lib/mapbox')
+        await import('mapbox-gl/dist/mapbox-gl.css')
+        const center: [number, number] = lng && lat
+          ? [parseFloat(lng), parseFloat(lat)]
+          : VN_CENTER
+        map = new mapboxgl.Map({
+          container: miniMapRef.current,
+          style: MAPBOX_STYLE,
+          center,
+          zoom: lng && lat ? 15 : 11,
+          attributionControl: false,
+        })
+        map.addControl(new mapboxgl.NavigationControl(), 'top-right')
+
+        // Add draggable marker if we have coords
+        if (lng && lat) {
+          const marker = new mapboxgl.Marker({ draggable: true, color: '#06b6d4' })
+            .setLngLat(center)
+            .addTo(map)
+          marker.on('dragend', () => {
+            const lngLat = marker.getLngLat()
+            setLat(lngLat.lat.toFixed(6))
+            setLng(lngLat.lng.toFixed(6))
+          })
+          markerRef.current = marker
+        }
+
+        // Click to place/move marker
+        map.on('click', (e: any) => {
+          const { lng: clickLng, lat: clickLat } = e.lngLat
+          setLat(clickLat.toFixed(6))
+          setLng(clickLng.toFixed(6))
+          if (markerRef.current) {
+            markerRef.current.setLngLat([clickLng, clickLat])
+          } else {
+            const marker = new mapboxgl.Marker({ draggable: true, color: '#06b6d4' })
+              .setLngLat([clickLng, clickLat])
+              .addTo(map)
+            marker.on('dragend', () => {
+              const lngLat = marker.getLngLat()
+              setLat(lngLat.lat.toFixed(6))
+              setLng(lngLat.lng.toFixed(6))
+            })
+            markerRef.current = marker
+          }
+        })
+
+        miniMapInstance.current = map
+      } catch {
+        // Mapbox not available — silent fail, manual input still works
+      }
+    }
+    init()
+    return () => { if (map) try { map.remove() } catch {} }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Geocode from address
+  const handleGeocode = useCallback(async () => {
+    if (!address.trim()) { setGeocodeMsg('Nhập địa chỉ trước'); return }
+    setGeocoding(true)
+    setGeocodeMsg('')
+    try {
+      const token = import.meta.env.VITE_MAPBOX_TOKEN
+      if (!token) { setGeocodeMsg('Chưa cấu hình Mapbox token'); return }
+      const q = encodeURIComponent(address.trim())
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${q}.json?access_token=${token}&country=VN&limit=1&language=vi`
+      )
+      const data = await res.json()
+      if (data.features?.length > 0) {
+        const [foundLng, foundLat] = data.features[0].center
+        setLat(foundLat.toFixed(6))
+        setLng(foundLng.toFixed(6))
+        setGeocodeMsg(`✓ ${data.features[0].place_name}`)
+        // Move map + marker
+        if (miniMapInstance.current) {
+          miniMapInstance.current.flyTo({ center: [foundLng, foundLat], zoom: 16, duration: 800 })
+          const { mapboxgl } = await import('@/lib/mapbox')
+          if (markerRef.current) {
+            markerRef.current.setLngLat([foundLng, foundLat])
+          } else {
+            const marker = new mapboxgl.Marker({ draggable: true, color: '#06b6d4' })
+              .setLngLat([foundLng, foundLat])
+              .addTo(miniMapInstance.current)
+            marker.on('dragend', () => {
+              const lngLat = marker.getLngLat()
+              setLat(lngLat.lat.toFixed(6))
+              setLng(lngLat.lng.toFixed(6))
+            })
+            markerRef.current = marker
+          }
+        }
+      } else {
+        setGeocodeMsg('Không tìm thấy toạ độ cho địa chỉ này')
+      }
+    } catch (err) {
+      setGeocodeMsg('Lỗi kết nối geocoding')
+    } finally {
+      setGeocoding(false)
+    }
+  }, [address, lat, lng])
 
   async function handleSubmit() {
     if (!name.trim() || !address.trim()) { setError('Tên và địa chỉ bắt buộc'); return }
@@ -231,11 +345,62 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
         <label style={labelStyle}>Số điện thoại</label>
         <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0901..." style={inputStyle} />
 
-        {/* Coordinates */}
-        <label style={labelStyle}>Toạ độ (hiển thị trên bản đồ)</label>
+        {/* Coordinates — Geocode + Mini Map */}
+        <label style={labelStyle}>
+          Toạ độ
+          <span style={{ fontWeight: 400, color: '#94a3b8', marginLeft: 6 }}>
+            {lat && lng ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}` : 'chưa có'}
+          </span>
+        </label>
+
+        {/* Geocode button */}
+        <button
+          onClick={handleGeocode}
+          disabled={geocoding || !address.trim()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+            padding: '8px 12px', marginBottom: 8,
+            background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+            color: '#fff', border: 'none', borderRadius: 8,
+            fontSize: 12, fontWeight: 600, cursor: address.trim() ? 'pointer' : 'not-allowed',
+            fontFamily: 'Outfit, sans-serif',
+            opacity: address.trim() ? 1 : 0.5,
+            boxShadow: '0 2px 6px rgba(6,182,212,0.25)',
+          }}
+        >
+          {geocoding ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Crosshair size={13} />}
+          {geocoding ? 'Đang tìm...' : '📍 Tìm toạ độ từ địa chỉ'}
+        </button>
+        {geocodeMsg && (
+          <p style={{ fontSize: 11, color: geocodeMsg.startsWith('✓') ? '#059669' : '#d97706', marginBottom: 6 }}>
+            {geocodeMsg}
+          </p>
+        )}
+
+        {/* Mini map */}
+        <div style={{
+          width: '100%', height: 180, borderRadius: 10, overflow: 'hidden',
+          border: '1px solid #e2e8f0', marginBottom: 4, position: 'relative',
+          background: '#f1f5f9',
+        }}>
+          <div ref={miniMapRef} style={{ width: '100%', height: '100%' }} />
+          {!miniMapInstance.current && (
+            <div style={{
+              position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#f1f5f9', fontSize: 12, color: '#94a3b8',
+            }}>
+              Đang tải bản đồ...
+            </div>
+          )}
+        </div>
+        <p style={{ fontSize: 10, color: '#cbd5e1', margin: '0 0 4px', textAlign: 'center' }}>
+          Click để đặt · kéo marker để tinh chỉnh
+        </p>
+
+        {/* Manual inputs (collapsed) */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <input value={lat} onChange={e => setLat(e.target.value)} placeholder="Vĩ độ (lat)" type="number" step="any" style={{ ...inputStyle, flex: 1 }} />
-          <input value={lng} onChange={e => setLng(e.target.value)} placeholder="Kinh độ (lng)" type="number" step="any" style={{ ...inputStyle, flex: 1 }} />
+          <input value={lat} onChange={e => setLat(e.target.value)} placeholder="Vĩ độ (lat)" type="number" step="any" style={{ ...inputStyle, flex: 1, fontSize: 11, padding: '6px 8px' }} />
+          <input value={lng} onChange={e => setLng(e.target.value)} placeholder="Kinh độ (lng)" type="number" step="any" style={{ ...inputStyle, flex: 1, fontSize: 11, padding: '6px 8px' }} />
         </div>
 
         {/* Route selector */}
