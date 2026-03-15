@@ -43,7 +43,7 @@ adc-delivery-system/
 
 ```bash
 # Clone repo
-git clone https://github.com/YOUR_ORG/adc-delivery-system.git
+git clone https://github.com/ikalabcas-netizen/adc-delivery-system.git
 cd adc-delivery-system
 
 # Cài dependencies (web + shared-types)
