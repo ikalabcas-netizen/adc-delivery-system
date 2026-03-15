@@ -65,7 +65,7 @@ export function ResponsiveShell({ navItems, accentColor = '#06b6d4', roleLabel, 
   )
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#eef2f5' }}>
+    <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: '#eef2f5' }}>
       {/* Desktop sidebar */}
       {!isMobile && sidebar}
 
@@ -142,6 +142,12 @@ export function ResponsiveShell({ navItems, accentColor = '#06b6d4', roleLabel, 
           to { transform: translateX(0); }
         }
       `}</style>
+      {/* Fallback for browsers without dvh support */}
+      <style>{`
+        @supports not (height: 100dvh) {
+          .adc-shell { height: 100vh !important; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -158,7 +164,7 @@ function Sidebar({ navItems, accentColor, roleLabel, profilePath, isMobile, onCl
     <aside style={{
       width: isMobile ? 260 : 220, flexShrink: 0,
       background: 'linear-gradient(180deg, #0B1929 0%, #0F2847 100%)',
-      display: 'flex', flexDirection: 'column', height: '100vh',
+      display: 'flex', flexDirection: 'column', height: '100dvh',
       boxShadow: '2px 0 12px rgba(0,0,0,0.15)',
     }}>
       {/* Brand + close on mobile */}
@@ -203,7 +209,7 @@ function Sidebar({ navItems, accentColor, roleLabel, profilePath, isMobile, onCl
       </nav>
 
       {/* User footer */}
-      <div style={{ padding: '10px 8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ padding: '10px 8px', paddingBottom: 'max(10px, env(safe-area-inset-bottom))', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
         <button onClick={() => navigate(profilePath)} style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 10,
           padding: '8px 12px', borderRadius: 8, background: 'transparent',

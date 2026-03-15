@@ -1,10 +1,12 @@
 import { Routes, Route } from 'react-router-dom'
-import { User } from 'lucide-react'
+import { User, ClipboardList } from 'lucide-react'
 import { ResponsiveShell, NavItem } from '@/components/layout/ResponsiveShell'
 import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
+import { DeliveryOrdersPage } from './DeliveryOrdersPage'
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/delivery/profile', icon: User, label: 'Hồ sơ cá nhân' },
+  { to: '/delivery/orders',  icon: ClipboardList, label: 'Đơn hàng' },
+  { to: '/delivery/profile', icon: User,          label: 'Hồ sơ' },
 ]
 
 export function DeliveryLayout() {
@@ -16,8 +18,9 @@ export function DeliveryLayout() {
       profilePath="/delivery/profile"
     >
       <Routes>
+        <Route path="orders"  element={<DeliveryOrdersPage />} />
         <Route path="profile" element={<ProfileSettingsPage />} />
-        <Route path="*"       element={<ProfileSettingsPage />} />
+        <Route path="*"       element={<DeliveryOrdersPage />} />
       </Routes>
     </ResponsiveShell>
   )

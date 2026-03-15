@@ -117,6 +117,6 @@ function RoleRedirect({ role }: { role?: string }) {
   if (role === 'coordinator') return <Navigate to="/coordinator/dashboard" replace />
   if (role === 'sales') return <Navigate to="/sales/orders" replace />
   if (role === 'manager') return <Navigate to="/coordinator/dashboard" replace />
-  if (role === 'delivery') return <Navigate to="/delivery/profile" replace />
+  if (role === 'delivery') return <Navigate to="/delivery/orders" replace />
   return <Navigate to="/pending" replace />
 }
