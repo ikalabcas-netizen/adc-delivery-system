@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Layers, Navigation, Package } from 'lucide-react'
 import { useOrders } from '@/hooks/useOrders'
 import { useLocations } from '@/hooks/useLocations'
+import { useDeliveryRoutes } from '@/hooks/useDeliveryRoutes'
 import type { Order } from '@adc/shared-types'
 
 /**
@@ -28,10 +29,10 @@ export function MapPage() {
   const [mapLoaded, setMapLoaded] = useState(false)
   const { data: orders = [] } = useOrders()
   const { data: locations = [] } = useLocations()
+  const { data: routes = [] } = useDeliveryRoutes()
 
-  // Stats
-  const activeOrders = orders.filter(o => ['pending', 'assigned', 'in_transit'].includes(o.status))
-  const locationsWithCoords = locations.filter(l => l.lat && l.lng)
+  // Build route color map
+  const routeColorMap = new Map(routes.map(r => [r.id, r]))
 
   // Initialize map
   useEffect(() => {
@@ -75,7 +76,11 @@ export function MapPage() {
     }
   }, [])
 
-  // Add markers when map loaded + orders/locations change
+  // Stats
+  const activeOrders = orders.filter(o => ['pending', 'assigned', 'in_transit'].includes(o.status))
+  const locationsWithCoords = locations.filter(l => l.lat && l.lng)
+
+  // Add markers when map loaded + data changes
   useEffect(() => {
     if (!mapLoaded || !mapInstance.current) return
 
@@ -128,14 +133,18 @@ export function MapPage() {
         }
       })
 
-      // Add location markers (no order)
+      // Add saved location markers (colored by route)
       locationsWithCoords.forEach(loc => {
         const isUsedInOrder = orders.some(o =>
           o.pickup_location_id === loc.id || o.delivery_location_id === loc.id
         )
         if (isUsedInOrder) return // Already shown via order markers
 
-        const el = createMarkerEl('#94a3b8', '·', 8)
+        const route = loc.route_id ? routeColorMap.get(loc.route_id) : null
+        const bubbleColor = route?.color ?? '#94a3b8'
+        const routeLabel = route?.name ?? ''
+
+        const el = createMarkerEl(bubbleColor, '', 10)
         const marker = new mapboxgl.Marker({ element: el })
           .setLngLat([loc.lng!, loc.lat!])
           .setPopup(new mapboxgl.Popup({ offset: 15, closeButton: false })
@@ -143,6 +152,7 @@ export function MapPage() {
               <div style="font-family:Outfit,sans-serif;padding:4px 0">
                 <p style="font-weight:600;font-size:13px;margin:0">${loc.name}</p>
                 <p style="font-size:11px;color:#94a3b8;margin:2px 0 0">${loc.address}</p>
+                ${routeLabel ? `<span style="display:inline-block;margin-top:4px;padding:2px 6px;border-radius:10px;font-size:10px;font-weight:600;color:${bubbleColor};background:${bubbleColor}18">${routeLabel}</span>` : ''}
               </div>
             `))
           .addTo(map)
@@ -155,7 +165,7 @@ export function MapPage() {
     return () => {
       markers.forEach(m => m.remove())
     }
-  }, [mapLoaded, orders, locations, locationsWithCoords])
+  }, [mapLoaded, orders, locations, locationsWithCoords, routeColorMap])
 
   return (
     <div style={{ fontFamily: 'Outfit, sans-serif', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -211,20 +221,28 @@ export function MapPage() {
           </>
         )}
 
-        {/* Legend */}
+        {/* Legend — routes + order statuses */}
         {mapLoaded && (
           <div style={{
             position: 'absolute', bottom: 12, left: 12,
             background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
             borderRadius: 10, padding: '10px 14px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            display: 'flex', gap: 12, fontSize: 11,
+            display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11,
           }}>
-            <LegendItem color="#06b6d4" label="Lấy hàng" />
-            <LegendItem color="#d97706" label="Chờ giao" />
-            <LegendItem color="#2563eb" label="Đã gán" />
-            <LegendItem color="#7c3aed" label="Đang giao" />
-            <LegendItem color="#059669" label="Đã giao" />
+            <div style={{ fontWeight: 600, color: '#475569', marginBottom: 2 }}>Tuyến giao nhận</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {routes.map(r => <LegendItem key={r.id} color={r.color} label={r.name} />)}
+              <LegendItem color="#94a3b8" label="Chưa gán tuyến" />
+            </div>
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 4, marginTop: 2, fontWeight: 600, color: '#475569' }}>Trạng thái đơn</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <LegendItem color="#06b6d4" label="Lấy hàng" />
+              <LegendItem color="#d97706" label="Chờ giao" />
+              <LegendItem color="#2563eb" label="Đã gán" />
+              <LegendItem color="#7c3aed" label="Đang giao" />
+              <LegendItem color="#059669" label="Đã giao" />
+            </div>
           </div>
         )}
       </div>

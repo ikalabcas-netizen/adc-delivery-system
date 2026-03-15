@@ -1,17 +1,19 @@
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { ClipboardList, Map, MapPin, Route as RouteIcon, LogOut, User, ChevronRight } from 'lucide-react'
+import { ClipboardList, Map, MapPin, Route as RouteIcon, LogOut, User, ChevronRight, GitBranchPlus } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 import { OrdersPage } from './OrdersPage'
 import { LocationsPage } from './LocationsPage'
 import { TripsPage } from './TripsPage'
 import { MapPage } from './MapPage'
+import { DeliveryRoutesPage } from './DeliveryRoutesPage'
 
 const NAV_ITEMS = [
-  { to: '/coordinator/orders',    icon: ClipboardList, label: 'Đơn hàng' },
-  { to: '/coordinator/trips',     icon: RouteIcon,     label: 'Chuyến đi' },
-  { to: '/coordinator/map',       icon: Map,           label: 'Bản đồ' },
-  { to: '/coordinator/locations', icon: MapPin,        label: 'Địa điểm' },
+  { to: '/coordinator/orders',    icon: ClipboardList,  label: 'Đơn hàng' },
+  { to: '/coordinator/trips',     icon: RouteIcon,      label: 'Chuyến đi' },
+  { to: '/coordinator/map',       icon: Map,            label: 'Bản đồ' },
+  { to: '/coordinator/locations', icon: MapPin,         label: 'Địa điểm' },
+  { to: '/coordinator/routes',    icon: GitBranchPlus,  label: 'Tuyến GN' },
 ]
 
 function CoordinatorSidebar() {
@@ -108,6 +110,7 @@ export function CoordinatorLayout() {
           <Route path="trips"     element={<TripsPage />} />
           <Route path="map"       element={<MapPage />} />
           <Route path="locations" element={<LocationsPage />} />
+          <Route path="routes"    element={<DeliveryRoutesPage />} />
           <Route path="profile"   element={<ProfileSettingsPage />} />
           <Route path="*"         element={<OrdersPage />} />
         </Routes>

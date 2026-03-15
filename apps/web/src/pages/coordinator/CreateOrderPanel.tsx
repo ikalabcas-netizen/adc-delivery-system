@@ -196,7 +196,7 @@ const LocationPicker = forwardRef<HTMLInputElement, LocationPickerProps>(
 
     async function handleAddNew() {
       if (!newName.trim() || !newAddr.trim()) return
-      const loc = await createLoc.mutateAsync({ name: newName.trim(), address: newAddr.trim(), phone: null, lat: null, lng: null, note: null })
+      const loc = await createLoc.mutateAsync({ name: newName.trim(), address: newAddr.trim(), phone: null, lat: null, lng: null, note: null, route_id: null })
       onSelect(loc)
       setAdding(false)
       setOpen(false)

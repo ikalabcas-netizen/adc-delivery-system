@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { MapPin, Search, Plus, Edit2, Trash2, X, Check } from 'lucide-react'
+import { MapPin, Search, Plus, Edit2, Trash2, X, Check, Navigation } from 'lucide-react'
 import { useLocations, useCreateLocation, useUpdateLocation, useDeleteLocation } from '@/hooks/useLocations'
+import { useDeliveryRoutes } from '@/hooks/useDeliveryRoutes'
 import type { Location } from '@adc/shared-types'
 
 export function LocationsPage() {
   const { data: locations = [], isLoading } = useLocations()
+  const { data: routes = [] } = useDeliveryRoutes()
   const [search, setSearch]     = useState('')
   const [showAdd, setShowAdd]   = useState(false)
   const [editing, setEditing]   = useState<Location | null>(null)
@@ -63,13 +65,18 @@ export function LocationsPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(loc => (
-            <LocationCard
-              key={loc.id}
-              location={loc}
-              onEdit={() => setEditing(loc)}
-            />
-          ))}
+          {filtered.map(loc => {
+            const route = routes.find(r => r.id === loc.route_id)
+            return (
+              <LocationCard
+                key={loc.id}
+                location={loc}
+                routeColor={route?.color}
+                routeName={route?.name}
+                onEdit={() => setEditing(loc)}
+              />
+            )
+          })}
         </div>
       )}
 
@@ -84,7 +91,9 @@ export function LocationsPage() {
   )
 }
 
-function LocationCard({ location, onEdit }: { location: Location; onEdit: () => void }) {
+function LocationCard({ location, routeColor, routeName, onEdit }: {
+  location: Location; routeColor?: string; routeName?: string; onEdit: () => void
+}) {
   const deleteLocation = useDeleteLocation()
   const [confirming, setConfirming] = useState(false)
 
@@ -93,23 +102,40 @@ function LocationCard({ location, onEdit }: { location: Location; onEdit: () => 
       background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
       padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14,
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      borderLeft: routeColor ? `4px solid ${routeColor}` : undefined,
     }}>
       <div style={{
         width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-        background: 'linear-gradient(135deg, #ecfeff, #cffafe)',
+        background: routeColor ? `${routeColor}18` : 'linear-gradient(135deg, #ecfeff, #cffafe)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <MapPin size={16} color="#0891b2" />
+        <MapPin size={16} color={routeColor ?? '#0891b2'} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{location.name}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{location.name}</span>
+          {routeName && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10,
+              background: `${routeColor}18`, color: routeColor,
+            }}>{routeName}</span>
+          )}
+        </div>
         <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {location.address}
         </p>
-        {location.phone && (
-          <p style={{ fontSize: 11, color: '#cbd5e1', margin: '1px 0 0' }}>📞 {location.phone}</p>
-        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+          {location.phone && (
+            <span style={{ fontSize: 11, color: '#cbd5e1' }}>📞 {location.phone}</span>
+          )}
+          {location.lat && location.lng && (
+            <span style={{ fontSize: 11, color: '#cbd5e1' }}>
+              <Navigation size={9} style={{ verticalAlign: -1, marginRight: 2 }} />
+              {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+            </span>
+          )}
+        </div>
       </div>
 
       {confirming ? (
@@ -142,19 +168,32 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
   const isEdit = !!location
   const createLoc = useCreateLocation()
   const updateLoc = useUpdateLocation()
+  const { data: routes = [] } = useDeliveryRoutes()
   const [name, setName]       = useState(location?.name ?? '')
   const [address, setAddress] = useState(location?.address ?? '')
   const [phone, setPhone]     = useState(location?.phone ?? '')
   const [note, setNote]       = useState(location?.note ?? '')
+  const [lat, setLat]         = useState(location?.lat?.toString() ?? '')
+  const [lng, setLng]         = useState(location?.lng?.toString() ?? '')
+  const [routeId, setRouteId] = useState(location?.route_id ?? '')
   const [error, setError]     = useState('')
 
   async function handleSubmit() {
     if (!name.trim() || !address.trim()) { setError('Tên và địa chỉ bắt buộc'); return }
+    const payload = {
+      name: name.trim(),
+      address: address.trim(),
+      phone: phone.trim() || null,
+      note: note.trim() || null,
+      lat: lat ? parseFloat(lat) : null,
+      lng: lng ? parseFloat(lng) : null,
+      route_id: routeId || null,
+    }
     try {
       if (isEdit) {
-        await updateLoc.mutateAsync({ id: location!.id, name: name.trim(), address: address.trim(), phone: phone.trim() || null, note: note.trim() || null })
+        await updateLoc.mutateAsync({ id: location!.id, ...payload })
       } else {
-        await createLoc.mutateAsync({ name: name.trim(), address: address.trim(), phone: phone.trim() || null, lat: null, lng: null, note: note.trim() || null })
+        await createLoc.mutateAsync(payload)
       }
       onClose()
     } catch (err) {
@@ -170,8 +209,9 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
     }}>
       <div style={{
         background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-        borderRadius: 16, padding: 28, width: '100%', maxWidth: 420,
+        borderRadius: 16, padding: 28, width: '100%', maxWidth: 440,
         boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: '1px solid rgba(6,182,212,0.15)',
+        maxHeight: '90vh', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: 0 }}>
@@ -190,6 +230,46 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
 
         <label style={labelStyle}>Số điện thoại</label>
         <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0901..." style={inputStyle} />
+
+        {/* Coordinates */}
+        <label style={labelStyle}>Toạ độ (hiển thị trên bản đồ)</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={lat} onChange={e => setLat(e.target.value)} placeholder="Vĩ độ (lat)" type="number" step="any" style={{ ...inputStyle, flex: 1 }} />
+          <input value={lng} onChange={e => setLng(e.target.value)} placeholder="Kinh độ (lng)" type="number" step="any" style={{ ...inputStyle, flex: 1 }} />
+        </div>
+
+        {/* Route selector */}
+        <label style={labelStyle}>Tuyến giao nhận</label>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setRouteId('')}
+            style={{
+              padding: '6px 12px', borderRadius: 20, cursor: 'pointer',
+              border: !routeId ? '2px solid #0f172a' : '1px solid #e2e8f0',
+              background: !routeId ? '#f1f5f9' : '#fff',
+              fontSize: 12, fontWeight: 500, color: '#475569', fontFamily: 'Outfit, sans-serif',
+            }}
+          >
+            Không
+          </button>
+          {routes.map(r => (
+            <button
+              key={r.id}
+              onClick={() => setRouteId(r.id)}
+              style={{
+                padding: '6px 12px', borderRadius: 20, cursor: 'pointer',
+                border: routeId === r.id ? `2px solid ${r.color}` : '1px solid #e2e8f0',
+                background: routeId === r.id ? `${r.color}18` : '#fff',
+                fontSize: 12, fontWeight: 600, color: routeId === r.id ? r.color : '#475569',
+                fontFamily: 'Outfit, sans-serif',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: r.color }} />
+              {r.name}
+            </button>
+          ))}
+        </div>
 
         <label style={labelStyle}>Ghi chú</label>
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú thêm..." style={inputStyle} />

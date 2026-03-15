@@ -27,6 +27,16 @@ export interface Profile {
   created_at:    string
 }
 
+// ---- Delivery Routes (Tuyến Giao nhận) ----
+export interface DeliveryRoute {
+  id:          string
+  name:        string
+  color:       string
+  description: string | null
+  created_by:  string | null
+  created_at:  string
+}
+
 // ---- Locations ----
 export interface Location {
   id:         string
@@ -36,6 +46,7 @@ export interface Location {
   lat:        number | null
   lng:        number | null
   note:       string | null
+  route_id:   string | null
   created_by: string | null
   created_at: string
 }
