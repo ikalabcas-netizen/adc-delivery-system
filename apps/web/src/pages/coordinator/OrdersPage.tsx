@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User } from 'lucide-react'
-import { useOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
+import { usePaginatedOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
 import { CreateOrderPanel } from './CreateOrderPanel'
 import { EditOrderPanel } from './EditOrderPanel'
 import { OrderDetailModal } from '@/components/order/OrderDetailModal'
+import { Pagination } from '@/components/Pagination'
 import type { Order, OrderStatus } from '@adc/shared-types'
 
 const TABS: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode; color: string }[] = [
@@ -27,13 +28,23 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
 
 export function OrdersPage() {
   const [tab, setTab]                       = useState<OrderStatus | 'all'>('all')
+  const [page, setPage]                     = useState(1)
   const [showCreate, setShowCreate]         = useState(false)
   const [assigningOrder, setAssigningOrder] = useState<Order | null>(null)
   const [editingOrder, setEditingOrder]     = useState<Order | null>(null)
   const [detailOrder, setDetailOrder]       = useState<Order | null>(null)
-  const { data: allOrders = [], isLoading } = useOrders()
+  const { data, isLoading } = usePaginatedOrders(page, tab)
 
-  const filtered = tab === 'all' ? allOrders : allOrders.filter(o => o.status === tab)
+  const orders     = data?.items ?? []
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = data?.totalPages ?? 1
+  const pageSize   = data?.pageSize ?? 20
+
+  // Reset page when switching tabs
+  function handleTabChange(newTab: OrderStatus | 'all') {
+    setTab(newTab)
+    setPage(1)
+  }
 
   return (
     <div style={{ fontFamily: 'Outfit, sans-serif', maxWidth: 900 }}>
@@ -41,7 +52,7 @@ export function OrdersPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>Đơn hàng</h1>
-          <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{allOrders.length} đơn</p>
+          <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{totalCount} đơn</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -60,12 +71,11 @@ export function OrdersPage() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map(t => {
-          const count = t.key === 'all' ? allOrders.length : allOrders.filter(o => o.status === t.key).length
           const isActive = tab === t.key
           return (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => handleTabChange(t.key)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '6px 12px', borderRadius: 20,
@@ -76,7 +86,7 @@ export function OrdersPage() {
                 fontFamily: 'Outfit, sans-serif',
               }}
             >
-              {t.icon} {t.label} ({count})
+              {t.icon} {t.label}
             </button>
           )
         })}
@@ -85,22 +95,25 @@ export function OrdersPage() {
       {/* List */}
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>Đang tải...</div>
-      ) : filtered.length === 0 ? (
+      ) : orders.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
           {tab === 'all' ? 'Chưa có đơn hàng nào' : `Không có đơn "${STATUS_MAP[tab]?.label ?? tab}"`}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(order => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onAssign={() => setAssigningOrder(order)}
-              onEdit={() => setEditingOrder(order)}
-              onClick={() => setDetailOrder(order)}
-            />
-          ))}
-        </div>
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {orders.map(order => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onAssign={() => setAssigningOrder(order)}
+                onEdit={() => setEditingOrder(order)}
+                onClick={() => setDetailOrder(order)}
+              />
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} totalItems={totalCount} pageSize={pageSize} onPageChange={setPage} />
+        </>
       )}
 
       {/* Create panel */}

@@ -8,6 +8,7 @@ import {
   RefreshCw, ChevronDown, User,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { Pagination } from '@/components/Pagination'
 
 interface Feedback {
   id: string
@@ -48,6 +49,7 @@ export function KaizenPage() {
   const [items, setItems] = useState<Feedback[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('all')
+  const [page, setPage] = useState(1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [adminNote, setAdminNote] = useState('')
   const [updating, setUpdating] = useState<string | null>(null)
@@ -64,7 +66,15 @@ export function KaizenPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  const KAIZEN_PAGE_SIZE = 15
   const filtered = tab === 'all' ? items : items.filter(i => i.status === tab)
+  const totalPages = Math.ceil(filtered.length / KAIZEN_PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * KAIZEN_PAGE_SIZE, page * KAIZEN_PAGE_SIZE)
+
+  function handleTabChange(key: string) {
+    setTab(key)
+    setPage(1)
+  }
 
   async function handleStatusUpdate(id: string, status: string, note?: string) {
     setUpdating(id)
@@ -114,7 +124,7 @@ export function KaizenPage() {
           return (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => handleTabChange(t.key)}
               style={{
                 padding: '6px 14px', borderRadius: 20,
                 border: active ? 'none' : '1px solid #e2e8f0',
@@ -139,7 +149,7 @@ export function KaizenPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(item => {
+          {paginated.map(item => {
             const st = STATUS_MAP[item.status] ?? STATUS_MAP.pending
             const isExpanded = expandedId === item.id
             const isUpdating = updating === item.id
@@ -290,6 +300,9 @@ export function KaizenPage() {
             )
           })}
         </div>
+      )}
+      {!loading && filtered.length > KAIZEN_PAGE_SIZE && (
+        <Pagination page={page} totalPages={totalPages} totalItems={filtered.length} pageSize={KAIZEN_PAGE_SIZE} onPageChange={setPage} />
       )}
     </div>
   )

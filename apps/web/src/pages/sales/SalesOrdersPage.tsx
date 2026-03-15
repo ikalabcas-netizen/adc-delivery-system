@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Clock, Truck, CheckCircle, XCircle, Package, UserPlus, User } from 'lucide-react'
-import { useOrders } from '@/hooks/useOrders'
+import { usePaginatedOrders } from '@/hooks/useOrders'
 import { OrderDetailModal } from '@/components/order/OrderDetailModal'
+import { Pagination } from '@/components/Pagination'
 import type { Order, OrderStatus } from '@adc/shared-types'
 
 const TABS: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode; color: string }[] = [
@@ -29,27 +30,35 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
  */
 export function SalesOrdersPage() {
   const [tab, setTab] = useState<OrderStatus | 'all'>('all')
+  const [page, setPage] = useState(1)
   const [detailOrder, setDetailOrder] = useState<Order | null>(null)
-  const { data: allOrders = [], isLoading } = useOrders()
+  const { data, isLoading } = usePaginatedOrders(page, tab)
 
-  const filtered = tab === 'all' ? allOrders : allOrders.filter(o => o.status === tab)
+  const orders     = data?.items ?? []
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = data?.totalPages ?? 1
+  const pageSize   = data?.pageSize ?? 20
+
+  function handleTabChange(newTab: OrderStatus | 'all') {
+    setTab(newTab)
+    setPage(1)
+  }
 
   return (
     <div style={{ fontFamily: 'Outfit, sans-serif', maxWidth: 900 }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>Đơn hàng</h1>
-        <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{allOrders.length} đơn · chế độ xem</p>
+        <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{totalCount} đơn · chế độ xem</p>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map(t => {
-          const count = t.key === 'all' ? allOrders.length : allOrders.filter(o => o.status === t.key).length
           const isActive = tab === t.key
           return (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => handleTabChange(t.key)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '6px 12px', borderRadius: 20,
@@ -60,7 +69,7 @@ export function SalesOrdersPage() {
                 fontFamily: 'Outfit, sans-serif',
               }}
             >
-              {t.icon} {t.label} ({count})
+              {t.icon} {t.label}
             </button>
           )
         })}
@@ -69,16 +78,19 @@ export function SalesOrdersPage() {
       {/* List */}
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>Đang tải...</div>
-      ) : filtered.length === 0 ? (
+      ) : orders.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
           {tab === 'all' ? 'Chưa có đơn hàng nào' : `Không có đơn "${STATUS_MAP[tab]?.label ?? tab}"`}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map(order => (
-            <ReadOnlyOrderCard key={order.id} order={order} onClick={() => setDetailOrder(order)} />
-          ))}
-        </div>
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {orders.map(order => (
+              <ReadOnlyOrderCard key={order.id} order={order} onClick={() => setDetailOrder(order)} />
+            ))}
+          </div>
+          <Pagination page={page} totalPages={totalPages} totalItems={totalCount} pageSize={pageSize} onPageChange={setPage} />
+        </>
       )}
 
       <OrderDetailModal order={detailOrder} onClose={() => setDetailOrder(null)} />

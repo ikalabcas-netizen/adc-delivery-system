@@ -38,6 +38,49 @@ export function useOrders(filters?: OrderFilters) {
   })
 }
 
+const PAGE_SIZE = 20
+
+/**
+ * Fetch paginated orders from DB using .range().
+ */
+export function usePaginatedOrders(page: number, statusFilter?: OrderStatus | 'all') {
+  const effectiveStatus = statusFilter === 'all' ? undefined : statusFilter
+
+  return useQuery({
+    queryKey: [...ORDERS_KEY, 'paginated', page, effectiveStatus],
+    queryFn: async () => {
+      const from = (page - 1) * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+
+      let query = supabase
+        .from('orders')
+        .select(`
+          *,
+          pickup_location:locations!orders_pickup_location_id_fkey(*),
+          delivery_location:locations!orders_delivery_location_id_fkey(*),
+          assigned_driver:profiles!orders_assigned_to_fkey(id, full_name, avatar_url, phone, vehicle_plate)
+        `, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      if (effectiveStatus) {
+        query = query.eq('status', effectiveStatus)
+      }
+
+      const { data, error, count } = await query
+      if (error) throw error
+      return {
+        items: (data ?? []) as Order[],
+        totalCount: count ?? 0,
+        totalPages: Math.ceil((count ?? 0) / PAGE_SIZE),
+        pageSize: PAGE_SIZE,
+      }
+    },
+    staleTime: 1000 * 30,
+    placeholderData: (prev) => prev, // keep old data while loading new page
+  })
+}
+
 interface CreateOrderInput {
   pickup_location_id: string
   delivery_location_id: string
