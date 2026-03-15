@@ -114,7 +114,7 @@ function AuthenticatedRoutes({ role }: { role: string }) {
 
 function RoleRedirect({ role }: { role?: string }) {
   if (role === 'super_admin') return <Navigate to="/admin/users" replace />
-  if (role === 'coordinator') return <Navigate to="/coordinator/orders" replace />
+  if (role === 'coordinator') return <Navigate to="/coordinator/dashboard" replace />
   if (role === 'sales') return <Navigate to="/sales/orders" replace />
   if (role === 'manager') return <Navigate to="/monitor/dashboard" replace />
   if (role === 'delivery') return <Navigate to="/delivery/profile" replace />
