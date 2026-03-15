@@ -45,7 +45,7 @@ export function PendingApprovalPage() {
         <img
           src="/logo.png"
           alt="ADC"
-          style={{ height: 36, width: 'auto', objectFit: 'contain', marginBottom: 16, opacity: 0.7 }}
+          style={{ width: '67%', height: 'auto', objectFit: 'contain', marginBottom: 16, opacity: 0.85 }}
           onError={(e) => { e.currentTarget.style.display = 'none' }}
         />
 

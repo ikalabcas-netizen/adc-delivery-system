@@ -40,7 +40,7 @@ export function LoginPage() {
         <img
           src="/logo.png"
           alt="Alpha Digital Center"
-          style={{ height: '64px', width: 'auto', objectFit: 'contain', marginBottom: '20px' }}
+          style={{ width: '67%', height: 'auto', objectFit: 'contain', marginBottom: '20px' }}
           onError={(e) => {
             e.currentTarget.style.display = 'none'
           }}

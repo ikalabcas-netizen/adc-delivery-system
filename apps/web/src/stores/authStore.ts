@@ -101,6 +101,7 @@ export function initAuth() {
   supabase.auth.getSession().then(({ data: { session } }) => {
     useAuthStore.getState().setSession(session)
     if (session?.user) {
+      // isLoading already true from initial state — keep it true until profile loaded
       useAuthStore.getState().fetchProfile(session.user.id)
     } else {
       useAuthStore.setState({ isLoading: false })
@@ -110,6 +111,10 @@ export function initAuth() {
   supabase.auth.onAuthStateChange((_event, session) => {
     useAuthStore.getState().setSession(session)
     if (session?.user) {
+      // CRITICAL: set isLoading:true BEFORE async fetchProfile
+      // Without this, if isLoading was already false (e.g. after OAuth redirect),
+      // the app renders with profile:null and shows PendingApprovalPage prematurely.
+      useAuthStore.setState({ isLoading: true })
       useAuthStore.getState().fetchProfile(session.user.id)
     } else {
       useAuthStore.setState({ profile: null, isLoading: false })
