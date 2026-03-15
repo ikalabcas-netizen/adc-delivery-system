@@ -161,11 +161,6 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
               📝 {order.note}
             </div>
           )}
-          {order.rejection_note && (
-            <div style={{ background: '#fff1f2', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: '#be123c' }}>
-              ⚠️ Lý do trả lại: {order.rejection_note}
-            </div>
-          )}
 
           {/* ── Timeline ─────────────────────── */}
           <div style={{ marginTop: 6 }}>
