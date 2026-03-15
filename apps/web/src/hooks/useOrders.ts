@@ -111,6 +111,40 @@ export function useUpdateOrderStatus() {
 }
 
 /**
+ * Update order details (pickup, delivery, type, note).
+ */
+export function useUpdateOrder() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ orderId, ...fields }: {
+      orderId: string
+      pickup_location_id?: string
+      delivery_location_id?: string
+      type?: OrderType
+      note?: string | null
+    }) => {
+      const { data, error } = await supabase
+        .from('orders')
+        .update(fields)
+        .eq('id', orderId)
+        .select(`
+          *,
+          pickup_location:locations!orders_pickup_location_id_fkey(*),
+          delivery_location:locations!orders_delivery_location_id_fkey(*)
+        `)
+        .single()
+
+      if (error) throw error
+      return data as Order
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ORDERS_KEY })
+    },
+  })
+}
+
+/**
  * Cancel an order.
  */
 export function useCancelOrder() {

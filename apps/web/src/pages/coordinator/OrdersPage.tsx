@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User } from 'lucide-react'
 import { useOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
 import { CreateOrderPanel } from './CreateOrderPanel'
+import { EditOrderPanel } from './EditOrderPanel'
 import { OrderDetailModal } from '@/components/order/OrderDetailModal'
 import type { Order, OrderStatus } from '@adc/shared-types'
 
@@ -28,6 +29,7 @@ export function OrdersPage() {
   const [tab, setTab]                       = useState<OrderStatus | 'all'>('all')
   const [showCreate, setShowCreate]         = useState(false)
   const [assigningOrder, setAssigningOrder] = useState<Order | null>(null)
+  const [editingOrder, setEditingOrder]     = useState<Order | null>(null)
   const [detailOrder, setDetailOrder]       = useState<Order | null>(null)
   const { data: allOrders = [], isLoading } = useOrders()
 
@@ -94,6 +96,7 @@ export function OrdersPage() {
               key={order.id}
               order={order}
               onAssign={() => setAssigningOrder(order)}
+              onEdit={() => setEditingOrder(order)}
               onClick={() => setDetailOrder(order)}
             />
           ))}
@@ -105,6 +108,14 @@ export function OrdersPage() {
         <>
           <div onClick={() => setShowCreate(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.3)', zIndex: 40 }} />
           <CreateOrderPanel onClose={() => setShowCreate(false)} />
+        </>
+      )}
+
+      {/* Edit panel */}
+      {editingOrder && (
+        <>
+          <div onClick={() => setEditingOrder(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.3)', zIndex: 40 }} />
+          <EditOrderPanel order={editingOrder} onClose={() => setEditingOrder(null)} />
         </>
       )}
 
@@ -120,7 +131,7 @@ export function OrdersPage() {
 }
 
 // ─── Order Card with action buttons ───────────────────
-function OrderCard({ order, onAssign, onClick }: { order: Order; onAssign: () => void; onClick: () => void }) {
+function OrderCard({ order, onAssign, onEdit, onClick }: { order: Order; onAssign: () => void; onEdit: () => void; onClick: () => void }) {
   const status = STATUS_MAP[order.status] ?? STATUS_MAP.pending
   const pickup  = order.pickup_location
   const delivery = order.delivery_location
@@ -202,7 +213,7 @@ function OrderCard({ order, onAssign, onClick }: { order: Order; onAssign: () =>
               }}>
                 <UserPlus size={14} /> Gán giao nhận
               </button>
-              <button title="Sửa" style={actionBtn('#475569', '#f8fafc')}>
+              <button onClick={(e) => { e.stopPropagation(); onEdit() }} title="Sửa" style={actionBtn('#475569', '#f8fafc')}>
                 <Edit2 size={13} />
               </button>
               <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }} title="Xoá" style={actionBtn('#e11d48', '#fff1f2')}>
