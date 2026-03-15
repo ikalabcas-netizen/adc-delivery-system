@@ -62,68 +62,109 @@ style={{
 
 ---
 
-## 4. Sidebar Layout (Admin / Coordinator / Monitor)
+## 4. Responsive Shell & Layout (`ResponsiveShell.tsx`)
+
+**ALL layouts MUST use `ResponsiveShell`** — the shared component handles responsive sidebar automatically.
 
 ```tsx
-// Sidebar outer
+import { ResponsiveShell, NavItem } from '@/components/layout/ResponsiveShell'
+
+const NAV_ITEMS: NavItem[] = [
+  { to: '/coordinator/dashboard', icon: BarChart3, label: 'Dashboard' },
+  // ...
+]
+
+export function MyLayout() {
+  return (
+    <ResponsiveShell
+      navItems={NAV_ITEMS}
+      accentColor="#06b6d4"    // role-specific accent
+      roleLabel="Điều phối viên"
+      profilePath="/coordinator/profile"
+    >
+      <Routes>...</Routes>
+    </ResponsiveShell>
+  )
+}
+```
+
+### Role Accent Colors
+
+| Role | Accent | Hex |
+|------|--------|-----|
+| Coordinator | Cyan | `#06b6d4` |
+| Sales | Amber | `#f59e0b` |
+| Delivery | Emerald | `#10b981` |
+| Admin | Purple | `#8b5cf6` |
+
+### Responsive Breakpoints
+
+| Breakpoint | Sidebar | Main Padding | Behavior |
+|------------|---------|--------------|----------|
+| Desktop (>768px) | Fixed 220px left | `28px 32px` | Always visible |
+| Mobile (≤768px) | Hidden (drawer) | `16px` | Hamburger top-left → slide-out 260px |
+
+### Mobile Features
+- **Hamburger button** top-left with ADC brand bar
+- **Slide-out drawer** with `slideInLeft` animation (0.2s)
+- **Backdrop overlay** with blur — click to close
+- **Auto-close** on route navigation
+- **ESC key** to close drawer
+- **Content pages**: use `maxWidth` and responsive grids to adapt
+
+### Grid Responsive Pattern
+
+```tsx
+// KPI cards, driver grids, etc.
 style={{
-  width: 220, flexShrink: 0,
-  background: 'linear-gradient(180deg, #0c4a6e 0%, #083344 100%)',
-  display: 'flex', flexDirection: 'column', height: '100vh',
-  boxShadow: '2px 0 12px rgba(0,0,0,0.15)',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',  // min 160px on mobile
+  gap: 12,
 }}
 
-// Nav item ACTIVE
+// Two-column sections → stack on mobile
 style={{
-  background: 'rgba(6,182,212,0.2)',
-  color: '#67e8f9',
-  borderLeft: '2px solid #06b6d4',
-  borderRadius: 8, padding: '9px 12px',
-}}
-
-// Nav item INACTIVE
-style={{
-  color: 'rgba(255,255,255,0.65)',
-  borderLeft: '2px solid transparent',
-  borderRadius: 8, padding: '9px 12px',
-}}
-
-// Main content area
-style={{
-  flex: 1, overflowY: 'auto',
-  padding: '28px 32px',
-  background: '#eef2f5',
+  display: 'grid',
+  gridTemplateColumns: window.innerWidth > 768 ? '1fr 1fr' : '1fr',
+  gap: 16,
 }}
 ```
 
 ---
 
-## 5. Cards / List items (trang nội dung)
+## 5. Sidebar — Internal Structure (managed by ResponsiveShell)
+
+```tsx
+// Sidebar background (dark navy)
+background: 'linear-gradient(180deg, #0B1929 0%, #0F2847 100%)'
+
+// Nav item ACTIVE — uses role accentColor dynamically
+background: `${accentColor}22`, color: accentColor,
+borderLeft: `2px solid ${accentColor}`, borderRadius: 8
+
+// Nav item INACTIVE
+color: 'rgba(255,255,255,0.55)', borderLeft: '2px solid transparent'
+```
+
+---
+
+## 6. Cards / List items (trang nội dung)
 
 ```tsx
 // Standard white card
 style={{
-  background: '#fff',
-  borderRadius: 12,
-  border: '1px solid #e2e8f0',
-  padding: '14px 16px',
+  background: '#fff', borderRadius: 12,
+  border: '1px solid #e2e8f0', padding: '14px 16px',
   boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-}}
-
-// Card với ADC accent (pending/warning state)
-style={{
-  border: '1px solid rgba(217,119,6,0.2)',  // amber tint
-  background: '#fff',
-  borderRadius: 12,
 }}
 ```
 
 ---
 
-## 6. Buttons
+## 7. Buttons
 
 ```tsx
-// Primary button (Cyan gradient)
+// Primary (Cyan gradient)
 style={{
   padding: '9px 20px',
   background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
@@ -133,35 +174,26 @@ style={{
   boxShadow: '0 2px 8px rgba(6,182,212,0.3)',
 }}
 
-// Secondary button
+// Secondary
 style={{
-  padding: '9px 16px',
-  background: '#f8fafc', color: '#475569',
+  padding: '9px 16px', background: '#f8fafc', color: '#475569',
   border: '1px solid #e2e8f0', borderRadius: 9,
-  fontSize: 13, cursor: 'pointer',
-  fontFamily: 'Outfit, sans-serif',
+  fontSize: 13, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
 }}
 
-// Danger button
+// Danger
 style={{
   background: '#fff1f2', color: '#e11d48',
   border: '1px solid rgba(225,29,72,0.15)',
-  borderRadius: 9, padding: '9px 14px',
-  fontSize: 13, cursor: 'pointer',
+  borderRadius: 9, padding: '9px 14px', fontSize: 13,
 }}
 ```
 
 ---
 
-## 7. Status Badges
+## 8. Status Badges
 
 ```tsx
-// Pending (chờ duyệt)
-style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20,
-  background: '#fffbeb', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)' }}
-// Text: "⏳ Chờ duyệt"
-
-// Approved / Status badges by role
 const ROLE_MAP = {
   super_admin: { bg: '#f3f0ff', color: '#7c3aed', label: 'Super Admin' },
   coordinator: { bg: '#eff6ff', color: '#2563eb', label: 'Điều phối viên' },
@@ -169,7 +201,7 @@ const ROLE_MAP = {
   manager:     { bg: '#f0fdf4', color: '#059669', label: 'Quản lý' },
   delivery:    { bg: '#fffbeb', color: '#d97706', label: 'Giao nhận' },
 }
-// Order status
+
 const STATUS_MAP = {
   pending:    { bg: '#fffbeb', color: '#d97706', label: 'Chờ xử lý' },
   assigned:   { bg: '#eff6ff', color: '#2563eb', label: 'Đã gán' },
@@ -182,7 +214,7 @@ const STATUS_MAP = {
 
 ---
 
-## 8. Form Inputs
+## 9. Form Inputs
 
 ```tsx
 style={{
@@ -193,29 +225,24 @@ style={{
   outline: 'none', boxSizing: 'border-box',
 }}
 // Focus: border-color: #06b6d4, box-shadow: 0 0 0 3px rgba(6,182,212,0.1)
-
-// Label
-style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}
 ```
 
 ---
 
-## 9. Modals (glassmorphism overlay)
+## 10. Modals (glassmorphism overlay)
 
 ```tsx
 // Backdrop
 style={{
   position: 'fixed', inset: 0,
-  background: 'rgba(15,23,42,0.5)',
-  backdropFilter: 'blur(4px)',
+  background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   zIndex: 100, padding: 16,
 }}
 
 // Modal box
 style={{
-  background: 'rgba(255,255,255,0.95)',
-  backdropFilter: 'blur(20px)',
+  background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
   borderRadius: 16, padding: 28,
   width: '100%', maxWidth: 420,
   boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
@@ -225,7 +252,7 @@ style={{
 
 ---
 
-## 10. Page Header Pattern
+## 11. Page Header Pattern
 
 ```tsx
 <div style={{ marginBottom: 24 }}>
@@ -238,62 +265,14 @@ style={{
 
 ---
 
-## 11. Avatar với initials fallback
-
-```tsx
-{user.avatar_url ? (
-  <img src={user.avatar_url} alt=""
-    style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0' }} />
-) : (
-  <div style={{
-    width: 40, height: 40, borderRadius: '50%',
-    background: 'linear-gradient(135deg, #cffafe, #a5f3fc)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 15, fontWeight: 700, color: '#0891b2',
-  }}>
-    {(user.full_name ?? user.email ?? '?')[0].toUpperCase()}
-  </div>
-)}
-```
-
----
-
-## 12. Logo ADC
-
-```tsx
-<img
-  src="/logo.png"
-  alt="ADC Delivery System"
-  style={{ width: '67%', height: 'auto', objectFit: 'contain' }}
-  onError={(e) => { e.currentTarget.style.display = 'none' }}
-/>
-// Trong sidebar: height: 32px, filter: 'brightness(1.2)'
-```
-
----
-
-## 13. Section dividers (trong trang list)
-
-```tsx
-<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-  <SomeIcon size={14} color="#d97706" />
-  <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase',
-    letterSpacing: '0.08em', color: '#d97706' }}>
-    Tiêu đề section (N items)
-  </span>
-</div>
-```
-
----
-
-## 14. Các file tham chiếu trong project
+## 12. Các file tham chiếu trong project
 
 | File | Vai trò |
 |---|---|
+| `apps/web/src/components/layout/ResponsiveShell.tsx` | **Shared responsive shell — all layouts MUST use** |
 | `apps/web/src/pages/LoginPage.tsx` | Template nền trang trước auth |
 | `apps/web/src/pages/PendingApprovalPage.tsx` | Template glassmorphism card toàn trang |
-| `apps/web/src/pages/admin/AdminLayout.tsx` | Template sidebar + main layout |
+| `apps/web/src/pages/coordinator/CoordinatorLayout.tsx` | Example layout using ResponsiveShell |
 | `apps/web/src/pages/admin/AdminUsersPage.tsx` | Template card-list + modal pattern |
 | `apps/web/src/pages/ProfileSettingsPage.tsx` | Template form settings |
-| `apps/web/tailwind.config.js` | Token màu `adc-*` và `surface-*` |
 | `apps/web/src/index.css` | Outfit font import, CSS variables |
