@@ -10,7 +10,7 @@ const TABS: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode; co
   { key: 'assigned',   label: 'Đã gán',     icon: <UserPlus size={13} />,      color: '#2563eb' },
   { key: 'in_transit', label: 'Đang giao',  icon: <Truck size={13} />,         color: '#7c3aed' },
   { key: 'delivered',  label: 'Đã giao',    icon: <CheckCircle size={13} />,   color: '#059669' },
-  { key: 'failed',     label: 'Thất bại',   icon: <AlertTriangle size={13} />, color: '#e11d48' },
+
   { key: 'cancelled',  label: 'Huỷ',        icon: <XCircle size={13} />,       color: '#94a3b8' },
 ]
 
@@ -19,7 +19,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   assigned:   { label: 'Đã gán',    bg: '#eff6ff', color: '#2563eb' },
   in_transit: { label: 'Đang giao', bg: '#f3f0ff', color: '#7c3aed' },
   delivered:  { label: 'Đã giao',   bg: '#f0fdf4', color: '#059669' },
-  failed:     { label: 'Thất bại',  bg: '#fff1f2', color: '#e11d48' },
+
   cancelled:  { label: 'Đã huỷ',   bg: '#f8fafc', color: '#94a3b8' },
 }
 

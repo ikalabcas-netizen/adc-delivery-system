@@ -31,7 +31,7 @@ export const STATUS_LABELS: Record<string, string> = {
   assigned:   'Đã phân công',
   in_transit: 'Đang giao',
   delivered:  'Đã giao',
-  failed:     'Thất bại',
+
   cancelled:  'Đã huỷ',
 }
 
@@ -41,6 +41,6 @@ export const STATUS_BADGE_CLASS: Record<string, string> = {
   assigned:   'badge-assigned',
   in_transit: 'badge-in-transit',
   delivered:  'badge-delivered',
-  failed:     'badge-failed',
+
   cancelled:  'badge-cancelled',
 }

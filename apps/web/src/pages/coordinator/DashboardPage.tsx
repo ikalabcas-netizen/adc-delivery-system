@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import {
   Package, MapPin, Truck, Users, GitBranchPlus,
-  Clock, CheckCircle, AlertTriangle, XCircle, UserPlus,
+  Clock, CheckCircle, XCircle, UserPlus,
   TrendingUp, Activity, BarChart3,
 } from 'lucide-react'
 import { useOrders } from '@/hooks/useOrders'
@@ -22,7 +22,7 @@ export function DashboardPage() {
       assigned:   orders.filter(o => o.status === 'assigned').length,
       in_transit: orders.filter(o => o.status === 'in_transit').length,
       delivered:  orders.filter(o => o.status === 'delivered').length,
-      failed:     orders.filter(o => o.status === 'failed').length,
+
       cancelled:  orders.filter(o => o.status === 'cancelled').length,
     }
 
@@ -102,7 +102,7 @@ export function DashboardPage() {
           <StatusBar label="Đã gán" value={stats.byStatus.assigned} total={orders.length} color="#2563eb" icon={<UserPlus size={12} />} />
           <StatusBar label="Đang giao" value={stats.byStatus.in_transit} total={orders.length} color="#7c3aed" icon={<Truck size={12} />} />
           <StatusBar label="Đã giao" value={stats.byStatus.delivered} total={orders.length} color="#059669" icon={<CheckCircle size={12} />} />
-          <StatusBar label="Thất bại" value={stats.byStatus.failed} total={orders.length} color="#e11d48" icon={<AlertTriangle size={12} />} />
+
           <StatusBar label="Đã huỷ" value={stats.byStatus.cancelled} total={orders.length} color="#94a3b8" icon={<XCircle size={12} />} />
         </div>
 
@@ -296,7 +296,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   assigned:   { label: 'Đã gán',    bg: '#eff6ff', color: '#2563eb' },
   in_transit: { label: 'Đang giao', bg: '#f3f0ff', color: '#7c3aed' },
   delivered:  { label: 'Đã giao',   bg: '#f0fdf4', color: '#059669' },
-  failed:     { label: 'Thất bại',  bg: '#fff1f2', color: '#e11d48' },
+
   cancelled:  { label: 'Đã huỷ',   bg: '#f8fafc', color: '#94a3b8' },
 }
 

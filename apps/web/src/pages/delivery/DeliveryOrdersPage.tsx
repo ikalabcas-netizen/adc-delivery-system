@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import {
-  Package, Clock, Truck, CheckCircle, AlertTriangle,
-  Phone,
+  Package, Clock, Truck, CheckCircle,
+  Phone, XCircle,
 } from 'lucide-react'
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders'
 import { useAuthStore } from '@/stores/authStore'
+import { supabase } from '@/lib/supabase'
 import type { OrderStatus } from '@adc/shared-types'
 
 const MY_TABS: { key: 'active' | 'delivered' | 'all'; label: string }[] = [
@@ -18,15 +19,23 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string; ico
   assigned:   { label: 'Đã gán',    bg: '#eff6ff', color: '#2563eb', icon: <Package size={11} /> },
   in_transit: { label: 'Đang giao', bg: '#f3f0ff', color: '#7c3aed', icon: <Truck size={11} /> },
   delivered:  { label: 'Đã giao',   bg: '#f0fdf4', color: '#059669', icon: <CheckCircle size={11} /> },
-  failed:     { label: 'Thất bại',  bg: '#fff1f2', color: '#e11d48', icon: <AlertTriangle size={11} /> },
+  cancelled:  { label: 'Đã huỷ',   bg: '#f8fafc', color: '#94a3b8', icon: <XCircle size={11} /> },
 }
 
 export function DeliveryOrdersPage() {
   const { profile } = useAuthStore()
-  const { data: allOrders = [], isLoading } = useOrders()
+  const { data: allOrders = [], isLoading, refetch } = useOrders()
   const updateStatus = useUpdateOrderStatus()
   const [myTab, setMyTab] = useState<'active' | 'delivered' | 'all'>('active')
   const [accepting, setAccepting] = useState<string | null>(null)
+
+  // Reason modal state
+  const [reasonModal, setReasonModal] = useState<{
+    orderId: string
+    type: 'reject' | 'unsuccessful'
+  } | null>(null)
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const myId = profile?.id
 
@@ -46,11 +55,7 @@ export function DeliveryOrdersPage() {
     if (!myId) return
     setAccepting(orderId)
     try {
-      await updateStatus.mutateAsync({
-        orderId,
-        status: 'assigned',
-        assigned_to: myId,
-      })
+      await updateStatus.mutateAsync({ orderId, status: 'assigned', assigned_to: myId })
     } catch (err) {
       console.error('Accept failed:', err)
     }
@@ -64,6 +69,30 @@ export function DeliveryOrdersPage() {
     } catch (err) {
       console.error('Status update failed:', err)
     }
+  }
+
+  // Reject or return order to pending with reason
+  async function handleReasonSubmit() {
+    if (!reasonModal || !reason.trim()) return
+    setSubmitting(true)
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: 'pending',
+          assigned_to: null,
+          rejection_note: reason.trim(),
+        })
+        .eq('id', reasonModal.orderId)
+
+      if (error) throw error
+      await refetch()
+      setReasonModal(null)
+      setReason('')
+    } catch (err) {
+      console.error('Reject/return failed:', err)
+    }
+    setSubmitting(false)
   }
 
   if (isLoading) {
@@ -107,8 +136,11 @@ export function DeliveryOrdersPage() {
                       <div style={{ width: 1, height: 8, background: '#e2e8f0', marginLeft: 3.5 }} />
                       <RoutePoint color="#d97706" label={order.delivery_location?.name ?? '—'} address={order.delivery_location?.address} />
                     </div>
-                    {order.note && (
-                      <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>📝 {order.note}</p>
+                    {order.note && <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>📝 {order.note}</p>}
+                    {order.rejection_note && (
+                      <p style={{ fontSize: 11, color: '#e11d48', marginTop: 4, background: '#fff1f2', padding: '4px 8px', borderRadius: 6 }}>
+                        ⚠️ Lý do trả lại: {order.rejection_note}
+                      </p>
                     )}
                   </div>
                   <button
@@ -116,9 +148,7 @@ export function DeliveryOrdersPage() {
                     disabled={accepting === order.id}
                     style={{
                       padding: '10px 18px', borderRadius: 10,
-                      background: accepting === order.id
-                        ? '#94a3b8'
-                        : 'linear-gradient(135deg, #06b6d4, #0891b2)',
+                      background: accepting === order.id ? '#94a3b8' : 'linear-gradient(135deg, #06b6d4, #0891b2)',
                       color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
                       cursor: accepting === order.id ? 'wait' : 'pointer',
                       fontFamily: 'Outfit, sans-serif',
@@ -131,7 +161,6 @@ export function DeliveryOrdersPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 10, color: '#cbd5e1' }}>
                   <span>{new Date(order.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                  <span>Loại: {order.type === 'pickup' ? 'Lấy hàng' : 'Giao hàng'}</span>
                 </div>
               </div>
             ))}
@@ -187,6 +216,7 @@ export function DeliveryOrdersPage() {
               const status = STATUS_MAP[order.status] ?? STATUS_MAP.assigned
               const canStartDelivery = order.status === 'assigned'
               const canComplete = order.status === 'in_transit'
+              const canReject = order.status === 'assigned'
 
               return (
                 <div key={order.id} style={{
@@ -216,55 +246,66 @@ export function DeliveryOrdersPage() {
                     <RoutePoint color="#d97706" label={order.delivery_location?.name ?? '—'} address={order.delivery_location?.address} phone={order.delivery_location?.phone} />
                   </div>
 
-                  {order.note && (
-                    <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>📝 {order.note}</p>
-                  )}
+                  {order.note && <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' }}>📝 {order.note}</p>}
 
                   {/* Action buttons */}
-                  {(canStartDelivery || canComplete) && (
+                  {canStartDelivery && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                      {canStartDelivery && (
+                      <button
+                        onClick={() => handleStatusUpdate(order.id, 'in_transit')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: 9,
+                          background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                          color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
+                          cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        }}
+                      >
+                        <Truck size={14} /> Bắt đầu giao
+                      </button>
+                      {canReject && (
                         <button
-                          onClick={() => handleStatusUpdate(order.id, 'in_transit')}
+                          onClick={() => { setReasonModal({ orderId: order.id, type: 'reject' }); setReason('') }}
                           style={{
-                            flex: 1, padding: '10px', borderRadius: 9,
-                            background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                            color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
-                            cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            padding: '10px 14px', borderRadius: 9,
+                            background: '#fff1f2', color: '#e11d48',
+                            border: '1px solid rgba(225,29,72,0.15)',
+                            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            fontFamily: 'Outfit, sans-serif',
                           }}
                         >
-                          <Truck size={14} /> Bắt đầu giao
+                          Từ chối
                         </button>
                       )}
-                      {canComplete && (
-                        <>
-                          <button
-                            onClick={() => handleStatusUpdate(order.id, 'delivered')}
-                            style={{
-                              flex: 1, padding: '10px', borderRadius: 9,
-                              background: 'linear-gradient(135deg, #059669, #047857)',
-                              color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
-                              cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                            }}
-                          >
-                            <CheckCircle size={14} /> Đã giao xong
-                          </button>
-                          <button
-                            onClick={() => handleStatusUpdate(order.id, 'failed')}
-                            style={{
-                              padding: '10px 14px', borderRadius: 9,
-                              background: '#fff1f2', color: '#e11d48',
-                              border: '1px solid rgba(225,29,72,0.15)',
-                              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                              fontFamily: 'Outfit, sans-serif',
-                            }}
-                          >
-                            Thất bại
-                          </button>
-                        </>
-                      )}
+                    </div>
+                  )}
+
+                  {canComplete && (
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => handleStatusUpdate(order.id, 'delivered')}
+                        style={{
+                          flex: 1, padding: '10px', borderRadius: 9,
+                          background: 'linear-gradient(135deg, #059669, #047857)',
+                          color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
+                          cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        }}
+                      >
+                        <CheckCircle size={14} /> Đã giao xong
+                      </button>
+                      <button
+                        onClick={() => { setReasonModal({ orderId: order.id, type: 'unsuccessful' }); setReason('') }}
+                        style={{
+                          padding: '10px 14px', borderRadius: 9,
+                          background: '#fff7ed', color: '#c2410c',
+                          border: '1px solid rgba(194,65,12,0.15)',
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          fontFamily: 'Outfit, sans-serif',
+                        }}
+                      >
+                        Không thành công
+                      </button>
                     </div>
                   )}
                 </div>
@@ -273,6 +314,89 @@ export function DeliveryOrdersPage() {
           </div>
         )}
       </div>
+
+      {/* ── Reason Modal ──────────────────────────────── */}
+      {reasonModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, padding: 16,
+        }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)',
+            borderRadius: 16, padding: 24, width: '100%', maxWidth: 380,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            border: `1px solid ${reasonModal.type === 'reject' ? 'rgba(225,29,72,0.15)' : 'rgba(194,65,12,0.15)'}`,
+          }}>
+            <h3 style={{
+              fontSize: 16, fontWeight: 700, margin: '0 0 4px',
+              color: reasonModal.type === 'reject' ? '#e11d48' : '#c2410c',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              {reasonModal.type === 'reject' ? (
+                <><XCircle size={18} /> Từ chối đơn hàng</>
+              ) : (
+                <><XCircle size={18} /> Giao không thành công</>
+              )}
+            </h3>
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 16px' }}>
+              {reasonModal.type === 'reject'
+                ? 'Đơn hàng sẽ được trả lại cho điều phối viên xử lý.'
+                : 'Đơn hàng sẽ quay về trạng thái Chờ xử lý để điều phối xử lý tiếp.'
+              }
+            </p>
+
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 6 }}>
+              Lý do <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder={reasonModal.type === 'reject' ? 'Ví dụ: Không thể đến khu vực này...' : 'Ví dụ: Khách hàng không liên lạc được...'}
+              rows={3}
+              autoFocus
+              style={{
+                width: '100%', padding: '10px 12px',
+                border: '1px solid #e2e8f0', borderRadius: 9,
+                fontSize: 13, fontFamily: 'Outfit, sans-serif',
+                color: '#1e293b', background: '#fff',
+                outline: 'none', boxSizing: 'border-box',
+                resize: 'vertical',
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button
+                onClick={() => { setReasonModal(null); setReason('') }}
+                style={{
+                  flex: 1, padding: 10, border: '1px solid #e2e8f0', borderRadius: 9,
+                  background: '#fff', fontSize: 13, cursor: 'pointer', color: '#475569',
+                  fontFamily: 'Outfit, sans-serif',
+                }}
+              >
+                Huỷ
+              </button>
+              <button
+                onClick={handleReasonSubmit}
+                disabled={!reason.trim() || submitting}
+                style={{
+                  flex: 2, padding: 10, border: 'none', borderRadius: 9,
+                  background: !reason.trim()
+                    ? '#e2e8f0'
+                    : reasonModal.type === 'reject'
+                      ? 'linear-gradient(135deg, #e11d48, #be123c)'
+                      : 'linear-gradient(135deg, #c2410c, #9a3412)',
+                  color: !reason.trim() ? '#94a3b8' : '#fff',
+                  fontSize: 13, fontWeight: 600, cursor: !reason.trim() ? 'not-allowed' : 'pointer',
+                  fontFamily: 'Outfit, sans-serif',
+                }}
+              >
+                {submitting ? 'Đang xử lý...' : reasonModal.type === 'reject' ? 'Xác nhận từ chối' : 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
   assigned:   '#2563eb',
   in_transit: '#7c3aed',
   delivered:  '#059669',
-  failed:     '#e11d48',
+
   cancelled:  '#94a3b8',
 }
 

@@ -58,7 +58,6 @@ export type OrderStatus =
   | 'assigned'
   | 'in_transit'
   | 'delivered'
-  | 'failed'
   | 'cancelled'
 
 export interface Order {
@@ -78,6 +77,7 @@ export interface Order {
   trip_id:              string | null
   scheduled_at:         string | null
   delivered_at:         string | null
+  rejection_note:       string | null
   created_at:           string
 }
 
@@ -135,9 +135,9 @@ export type OrderEventType =
   | 'picked_up'
   | 'in_transit'
   | 'delivered'
-  | 'failed'
   | 're_routed'
   | 'cancelled'
+  | 'rejected'
 
 export interface OrderEvent {
   id:         string
