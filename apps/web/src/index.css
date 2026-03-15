@@ -1,34 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  * {
+  *, *::before, *::after {
     box-sizing: border-box;
   }
 
-  body {
-    font-family: 'Inter', system-ui, sans-serif;
-    @apply bg-gray-50 text-gray-900 antialiased;
+  :root {
+    /* ADC Brand Tokens */
+    --adc-cyan:     #06b6d4;
+    --adc-dark:     #0891b2;
+    --adc-navy:     #164e63;
+    --adc-navy-950: #0a3444;
+
+    /* Animation */
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --dur-fast:    150ms;
+    --dur-base:    200ms;
+    --dur-slow:    300ms;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Outfit', system-ui, sans-serif;
+    @apply bg-surface-page text-slate-800 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400; }
 }
 
 @layer components {
-  /* Status badges */
-  .badge-pending    { @apply bg-amber-100  text-amber-800  px-2 py-0.5 rounded-full text-xs font-medium; }
-  .badge-assigned   { @apply bg-blue-100   text-blue-800   px-2 py-0.5 rounded-full text-xs font-medium; }
-  .badge-in-transit { @apply bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-xs font-medium; }
-  .badge-delivered  { @apply bg-green-100  text-green-800  px-2 py-0.5 rounded-full text-xs font-medium; }
-  .badge-failed     { @apply bg-red-100    text-red-800    px-2 py-0.5 rounded-full text-xs font-medium; }
-  .badge-cancelled  { @apply bg-gray-100   text-gray-600   px-2 py-0.5 rounded-full text-xs font-medium; }
+  /* ─── Status Badges ─────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-pending    { @apply badge bg-amber-100  text-amber-700; }
+  .badge-assigned   { @apply badge bg-blue-100   text-blue-700; }
+  .badge-in-transit { @apply badge bg-violet-100 text-violet-700; }
+  .badge-delivered  { @apply badge bg-green-100  text-green-700; }
+  .badge-failed     { @apply badge bg-red-100    text-red-700; }
+  .badge-cancelled  { @apply badge bg-slate-100  text-slate-600; }
 
-  /* Map container */
+  /* ─── Navigation ────────────────────────────────── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+           text-white/70 transition-all duration-[var(--dur-base)] ease-[var(--ease-smooth)]
+           hover:bg-white/10 hover:text-white;
+  }
+  .nav-item-active {
+    @apply nav-item bg-white/15 text-white;
+  }
+
+  /* ─── Cards ─────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-xl border border-surface-border shadow-sm;
+  }
+  .card-hover {
+    @apply card transition-shadow duration-[var(--dur-base)] hover:shadow-md;
+  }
+
+  /* ─── Map container ──────────────────────────────── */
   .map-container {
-    @apply w-full h-full rounded-lg overflow-hidden;
+    @apply w-full h-full rounded-xl overflow-hidden;
+  }
+
+  /* ─── Page layout ───────────────────────────────── */
+  .page-content {
+    @apply p-6 space-y-6 animate-fade-in;
   }
 }
 
-/* Mapbox popup styling override */
+/* ─── Mapbox overrides ──────────────────────────────── */
 .mapboxgl-popup-content {
-  @apply rounded-lg shadow-lg border border-gray-200 p-3 text-sm;
+  @apply rounded-xl shadow-lg border border-surface-border p-3 text-sm font-[Outfit];
 }
+.mapboxgl-ctrl-attrib { font-family: 'Outfit', sans-serif; }
+

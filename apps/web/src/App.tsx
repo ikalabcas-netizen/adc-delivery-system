@@ -13,7 +13,7 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin h-8 w-8 rounded-full border-4 border-brand-500 border-t-transparent" />
+        <div className="animate-spin h-8 w-8 rounded-full border-4 border-adc-500 border-t-transparent" />
       </div>
     )
   }

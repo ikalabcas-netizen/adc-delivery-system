@@ -1,42 +1,97 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { Users, ShieldCheck, Settings, LogOut, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+
+const NAV_ITEMS = [
+  { to: '/admin/users',  icon: Users,       label: 'Người dùng' },
+  { to: '/admin/roles',  icon: ShieldCheck, label: 'Phân quyền' },
+  { to: '/admin/system', icon: Settings,    label: 'Hệ thống' },
+]
 
 function AdminSidebar() {
   const { profile, signOut } = useAuthStore()
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      isActive ? 'bg-purple-100 text-purple-700' : 'text-gray-600 hover:bg-gray-100'
-    }`
 
   return (
-    <aside className="w-56 shrink-0 border-r border-gray-200 bg-white flex flex-col h-screen">
-      <div className="p-4 border-b border-gray-200">
-        <div className="font-bold text-purple-700 text-lg">ADC Delivery</div>
-        <div className="text-xs text-gray-500 mt-0.5">Super Admin</div>
+    <aside
+      className="w-56 shrink-0 flex flex-col h-screen"
+      style={{ background: 'linear-gradient(180deg, #164e63 0%, #0a3444 100%)' }}
+    >
+      <div className="px-5 py-5 border-b border-white/10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-adc-500/30 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#67e8f9" strokeWidth="1.5" opacity="0.5"/>
+              <path d="M7 17 C7 17 8.5 8 12 7 C15.5 6 17 13.5 16 17"
+                    stroke="#06b6d4" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <div className="text-white font-semibold text-sm leading-none">ADC Delivery</div>
+            <div className="text-adc-300 text-[10px] mt-0.5">Super Admin</div>
+          </div>
+        </div>
       </div>
-      <nav className="flex-1 p-3 space-y-1">
-        <NavLink to="/admin/users"   className={navClass}>👥 Người dùng</NavLink>
-        <NavLink to="/admin/roles"   className={navClass}>🔑 Phân quyền</NavLink>
-        <NavLink to="/admin/system"  className={navClass}>⚙️ Hệ thống</NavLink>
+
+      <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => isActive ? 'nav-item-active' : 'nav-item'}
+          >
+            <Icon size={16} />
+            <span>{label}</span>
+          </NavLink>
+        ))}
       </nav>
-      <div className="p-3 border-t border-gray-200">
-        <div className="text-xs text-gray-500 truncate mb-2">{profile?.full_name}</div>
-        <button onClick={signOut} className="text-xs text-red-400 hover:text-red-600">Đăng xuất</button>
+
+      <div className="p-3 border-t border-white/10">
+        <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
+          <div className="w-7 h-7 rounded-full bg-adc-500/30 flex items-center justify-center">
+            <User size={14} className="text-adc-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white/90 text-xs font-medium truncate">{profile?.full_name ?? 'Admin'}</p>
+            <p className="text-white/40 text-[10px] truncate">Super Admin</p>
+          </div>
+        </div>
+        <button
+          onClick={signOut}
+          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors text-xs"
+        >
+          <LogOut size={13} />
+          Đăng xuất
+        </button>
       </div>
     </aside>
   )
 }
 
+function PlaceholderPage({ title, desc }: { title: string; desc: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="page-content"
+    >
+      <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
+      <p className="text-slate-500 text-sm mt-1">{desc}</p>
+    </motion.div>
+  )
+}
+
 export function AdminLayout() {
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden">
       <AdminSidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto bg-surface-page">
         <Routes>
-          <Route path="users"  element={<div className="p-6"><h1 className="text-2xl font-bold">Người dùng</h1><p className="text-gray-500 mt-2">Danh sách tài khoản — đang phát triển</p></div>} />
-          <Route path="roles"  element={<div className="p-6"><h1 className="text-2xl font-bold">Phân quyền</h1><p className="text-gray-500 mt-2">Duyệt và gán vai trò — đang phát triển</p></div>} />
-          <Route path="system" element={<div className="p-6"><h1 className="text-2xl font-bold">Hệ thống</h1><p className="text-gray-500 mt-2">Cấu hình hệ thống — đang phát triển</p></div>} />
-          <Route path="*"      element={<div className="p-6"><h1 className="text-2xl font-bold">Admin</h1><p className="text-gray-500 mt-2">Chọn mục từ menu bên trái</p></div>} />
+          <Route path="users"  element={<PlaceholderPage title="Người dùng" desc="Danh sách tài khoản — đang phát triển" />} />
+          <Route path="roles"  element={<PlaceholderPage title="Phân quyền" desc="Duyệt và gán vai trò — đang phát triển" />} />
+          <Route path="system" element={<PlaceholderPage title="Hệ thống" desc="Cấu hình hệ thống — đang phát triển" />} />
+          <Route path="*"      element={<PlaceholderPage title="Admin" desc="Chọn mục từ menu bên trái" />} />
         </Routes>
       </main>
     </div>
