@@ -19,7 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: 'com.adc.adc_delivery_mobile://callback',
+        redirectTo: 'com.adc.delivery://login-callback',
       );
     } catch (e) {
       if (mounted) {
