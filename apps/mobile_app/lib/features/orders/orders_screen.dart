@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../trips/trip_service.dart';
 
 /// Main orders screen — 2 tabs: Đơn chờ nhận + Đơn của tôi
 class OrdersScreen extends StatefulWidget {
@@ -52,13 +53,14 @@ class _OrdersScreenState extends State<OrdersScreen>
           .order('created_at', ascending: false)
           .limit(50);
 
-      // My orders (assigned to me)
+      // In-transit orders (assigned to me, currently being delivered)
       List<Map<String, dynamic>> myRes = [];
       if (userId != null) {
         myRes = await _supabase
             .from('orders')
             .select(selectQuery)
             .eq('assigned_to', userId)
+            .eq('status', 'in_transit')
             .order('created_at', ascending: false)
             .limit(50);
       }
@@ -116,7 +118,7 @@ class _OrdersScreenState extends State<OrdersScreen>
           controller: _tabCtrl,
           tabs: [
             Tab(text: 'Chờ nhận (${_available.length})'),
-            Tab(text: 'Đơn của tôi (${_myOrders.length})'),
+            Tab(text: 'Đang giao (${_myOrders.length})'),
           ],
         ),
         actions: [
@@ -166,12 +168,50 @@ class _OrdersScreenState extends State<OrdersScreen>
       onRefresh: _fetchOrders,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: orders.length,
-        itemBuilder: (_, i) => _OrderCard(
-          order: orders[i],
-          isAvailable: isAvailable,
-          onClaim: isAvailable ? () => _claimOrder(orders[i]['id']) : null,
-          onTap: () => context.go('/orders/${orders[i]['id']}'),
+        itemCount: orders.length + ((!isAvailable && orders.length > 2) ? 1 : 0),
+        itemBuilder: (_, i) {
+          // "Tạo Chuyến" button appended after all order cards
+          if (!isAvailable && orders.length > 2 && i == orders.length) {
+            return _buildAutoTripButton(orders);
+          }
+          return _OrderCard(
+            order: orders[i],
+            isAvailable: isAvailable,
+            onClaim: isAvailable ? () => _claimOrder(orders[i]['id']) : null,
+            onTap: () => context.go('/orders/${orders[i]['id']}'),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAutoTripButton(List<Map<String, dynamic>> orders) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: FilledButton.icon(
+          onPressed: () async {
+            try {
+              final tripId = await TripService.createAutoTrip(orders);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✓ Đã tạo chuyến tự động!')),
+                );
+                context.go('/trips/$tripId');
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Lỗi tạo chuyến: $e')),
+                );
+              }
+            }
+          },
+          icon: const Icon(Icons.alt_route_rounded, size: 20),
+          label: const Text('Tạo Chuyến Tự động',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
       ),
     );
@@ -217,7 +257,7 @@ class _OrderCard extends StatelessWidget {
                   Text(
                     order['code']?.toString() ?? '—',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'monospace',
                     ),
@@ -309,7 +349,7 @@ class _OrderCard extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 13),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

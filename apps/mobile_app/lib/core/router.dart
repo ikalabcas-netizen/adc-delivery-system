@@ -8,6 +8,8 @@ import '../features/orders/orders_screen.dart';
 import '../features/orders/order_detail_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shell/app_shell.dart';
+import '../features/trips/trips_screen.dart';
+import '../features/trips/trip_detail_screen.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -15,20 +17,22 @@ final router = GoRouter(
   initialLocation: '/orders',
   redirect: (context, state) {
     final session = supabase.auth.currentSession;
-    final isOnLogin = state.matchedLocation == '/login';
-    final isOnPending = state.matchedLocation == '/pending';
+    final loc = state.matchedLocation;
+    final isOnLogin = loc == '/login';
+    final isOnCallback = loc == '/login-callback';
 
-    // Not logged in → go to login
+    if (isOnCallback) {
+      return session != null ? '/orders' : '/login';
+    }
     if (session == null) {
       return isOnLogin ? null : '/login';
     }
-
-    // Logged in but on login page → go to orders
     if (isOnLogin) return '/orders';
-
-    // Check if user is approved (we check profile)
-    // pending screen is allowed even if approved
     return null;
+  },
+  errorBuilder: (context, state) {
+    final session = supabase.auth.currentSession;
+    return session != null ? const OrdersScreen() : const LoginScreen();
   },
   routes: [
     GoRoute(
@@ -38,6 +42,12 @@ final router = GoRouter(
     GoRoute(
       path: '/pending',
       builder: (_, __) => const PendingScreen(),
+    ),
+    GoRoute(
+      path: '/login-callback',
+      builder: (_, __) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
     ),
     // Main app shell with bottom nav
     ShellRoute(
@@ -51,6 +61,18 @@ final router = GoRouter(
               path: ':id',
               builder: (_, state) => OrderDetailScreen(
                 orderId: state.pathParameters['id']!,
+              ),
+            ),
+          ],
+        ),
+        GoRoute(
+          path: '/trips',
+          builder: (_, __) => const TripsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (_, state) => TripDetailScreen(
+                tripId: state.pathParameters['id']!,
               ),
             ),
           ],
