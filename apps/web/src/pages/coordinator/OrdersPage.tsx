@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User } from 'lucide-react'
 import { useOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
 import { CreateOrderPanel } from './CreateOrderPanel'
+import { OrderDetailModal } from '@/components/order/OrderDetailModal'
 import type { Order, OrderStatus } from '@adc/shared-types'
 
 const TABS: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode; color: string }[] = [
@@ -27,6 +28,7 @@ export function OrdersPage() {
   const [tab, setTab]                       = useState<OrderStatus | 'all'>('all')
   const [showCreate, setShowCreate]         = useState(false)
   const [assigningOrder, setAssigningOrder] = useState<Order | null>(null)
+  const [detailOrder, setDetailOrder]       = useState<Order | null>(null)
   const { data: allOrders = [], isLoading } = useOrders()
 
   const filtered = tab === 'all' ? allOrders : allOrders.filter(o => o.status === tab)
@@ -92,6 +94,7 @@ export function OrdersPage() {
               key={order.id}
               order={order}
               onAssign={() => setAssigningOrder(order)}
+              onClick={() => setDetailOrder(order)}
             />
           ))}
         </div>
@@ -109,12 +112,15 @@ export function OrdersPage() {
       {assigningOrder && (
         <AssignDriverModal order={assigningOrder} onClose={() => setAssigningOrder(null)} />
       )}
+
+      {/* Order detail modal */}
+      <OrderDetailModal order={detailOrder} onClose={() => setDetailOrder(null)} />
     </div>
   )
 }
 
 // ─── Order Card with action buttons ───────────────────
-function OrderCard({ order, onAssign }: { order: Order; onAssign: () => void }) {
+function OrderCard({ order, onAssign, onClick }: { order: Order; onAssign: () => void; onClick: () => void }) {
   const status = STATUS_MAP[order.status] ?? STATUS_MAP.pending
   const pickup  = order.pickup_location
   const delivery = order.delivery_location
@@ -122,11 +128,17 @@ function OrderCard({ order, onAssign }: { order: Order; onAssign: () => void }) 
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
-    <div style={{
-      background: '#fff', borderRadius: 12,
-      border: order.status === 'pending' ? '1px solid rgba(217,119,6,0.2)' : '1px solid #e2e8f0',
-      padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-    }}>
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fff', borderRadius: 12,
+        border: order.status === 'pending' ? '1px solid rgba(217,119,6,0.2)' : '1px solid #e2e8f0',
+        padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        cursor: 'pointer', transition: 'box-shadow 0.15s',
+      }}
+      onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)')}
+      onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)')}
+    >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         {/* Left — route info */}
         <div style={{ flex: 1, minWidth: 0 }}>

@@ -5,8 +5,9 @@ import {
 } from 'lucide-react'
 import { useOrders, useUpdateOrderStatus } from '@/hooks/useOrders'
 import { useAuthStore } from '@/stores/authStore'
+import { OrderDetailModal } from '@/components/order/OrderDetailModal'
 import { supabase } from '@/lib/supabase'
-import type { OrderStatus } from '@adc/shared-types'
+import type { Order, OrderStatus } from '@adc/shared-types'
 
 const MY_TABS: { key: 'active' | 'delivered' | 'all'; label: string }[] = [
   { key: 'active',    label: 'Đang giao' },
@@ -28,6 +29,7 @@ export function DeliveryOrdersPage() {
   const updateStatus = useUpdateOrderStatus()
   const [myTab, setMyTab] = useState<'active' | 'delivered' | 'all'>('active')
   const [accepting, setAccepting] = useState<string | null>(null)
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null)
 
   // Reason modal state
   const [reasonModal, setReasonModal] = useState<{
@@ -123,11 +125,14 @@ export function DeliveryOrdersPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {availableOrders.map(order => (
-              <div key={order.id} style={{
+              <div key={order.id} onClick={() => setDetailOrder(order)} style={{
                 background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
                 padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                borderLeft: '4px solid #d97706',
-              }}>
+                borderLeft: '4px solid #d97706', cursor: 'pointer', transition: 'box-shadow 0.15s',
+              }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)')}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)')}
+              >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <code style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{order.code}</code>
@@ -144,7 +149,7 @@ export function DeliveryOrdersPage() {
                     )}
                   </div>
                   <button
-                    onClick={() => handleAccept(order.id)}
+                    onClick={(e) => { e.stopPropagation(); handleAccept(order.id) }}
                     disabled={accepting === order.id}
                     style={{
                       padding: '10px 18px', borderRadius: 10,
@@ -219,11 +224,14 @@ export function DeliveryOrdersPage() {
               const canReject = order.status === 'assigned'
 
               return (
-                <div key={order.id} style={{
+                <div key={order.id} onClick={() => setDetailOrder(order)} style={{
                   background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0',
                   padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                  borderLeft: `4px solid ${status.color}`,
-                }}>
+                  borderLeft: `4px solid ${status.color}`, cursor: 'pointer', transition: 'box-shadow 0.15s',
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)')}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <code style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>{order.code}</code>
@@ -252,7 +260,7 @@ export function DeliveryOrdersPage() {
                   {canStartDelivery && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => handleStatusUpdate(order.id, 'in_transit')}
+                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order.id, 'in_transit') }}
                         style={{
                           flex: 1, padding: '10px', borderRadius: 9,
                           background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
@@ -265,7 +273,7 @@ export function DeliveryOrdersPage() {
                       </button>
                       {canReject && (
                         <button
-                          onClick={() => { setReasonModal({ orderId: order.id, type: 'reject' }); setReason('') }}
+                          onClick={(e) => { e.stopPropagation(); setReasonModal({ orderId: order.id, type: 'reject' }); setReason('') }}
                           style={{
                             padding: '10px 14px', borderRadius: 9,
                             background: '#fff1f2', color: '#e11d48',
@@ -283,7 +291,7 @@ export function DeliveryOrdersPage() {
                   {canComplete && (
                     <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => handleStatusUpdate(order.id, 'delivered')}
+                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order.id, 'delivered') }}
                         style={{
                           flex: 1, padding: '10px', borderRadius: 9,
                           background: 'linear-gradient(135deg, #059669, #047857)',
@@ -295,7 +303,7 @@ export function DeliveryOrdersPage() {
                         <CheckCircle size={14} /> Đã giao xong
                       </button>
                       <button
-                        onClick={() => { setReasonModal({ orderId: order.id, type: 'unsuccessful' }); setReason('') }}
+                        onClick={(e) => { e.stopPropagation(); setReasonModal({ orderId: order.id, type: 'unsuccessful' }); setReason('') }}
                         style={{
                           padding: '10px 14px', borderRadius: 9,
                           background: '#fff7ed', color: '#c2410c',
@@ -397,6 +405,9 @@ export function DeliveryOrdersPage() {
           </div>
         </div>
       )}
+
+      {/* Order detail modal */}
+      <OrderDetailModal order={detailOrder} onClose={() => setDetailOrder(null)} />
     </div>
   )
 }
