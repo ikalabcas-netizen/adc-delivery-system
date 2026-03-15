@@ -4,14 +4,14 @@ import type { Session } from '@supabase/supabase-js'
 import type { Profile } from '@adc/shared-types'
 
 interface AuthState {
-  session:         Session | null
-  profile:         Profile | null
-  isLoading:       boolean
-  setSession:      (session: Session | null) => void
-  setProfile:      (profile: Profile | null) => void
+  session:          Session | null
+  profile:          Profile | null
+  isLoading:        boolean
+  setSession:       (session: Session | null) => void
+  setProfile:       (profile: Profile | null) => void
   signInWithGoogle: () => Promise<void>
-  signOut:         () => Promise<void>
-  fetchProfile:    (userId: string) => Promise<void>
+  signOut:          () => Promise<void>
+  fetchProfile:     (userId: string) => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -27,7 +27,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
-        // Request profile scopes
         scopes: 'profile email',
       },
     })
@@ -39,38 +38,59 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   fetchProfile: async (userId: string) => {
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    try {
+      // Always get auth user data first (guaranteed, no RLS issues)
+      const { data: { user } } = await supabase.auth.getUser()
+      const authEmail    = user?.email ?? null
+      const authName     = user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? null
+      const authAvatar   = user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null
 
-    if (existingProfile) {
-      // Profile already exists
-      set({ profile: existingProfile as Profile, isLoading: false })
-      return
-    }
+      // Try reading own profile (RLS: id = auth.uid() always passes)
+      const { data: existing, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()   // returns null instead of error when not found
 
-    // First-time login: get user metadata from auth and create profile row
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
+      if (error) {
+        console.error('[fetchProfile] select error:', error.message)
+      }
+
+      if (existing) {
+        // Patch email in DB if it was null (migration added the column)
+        if (!existing.email && authEmail) {
+          await supabase.from('profiles').update({ email: authEmail }).eq('id', userId)
+          set({ profile: { ...existing, email: authEmail } as Profile, isLoading: false })
+        } else {
+          set({ profile: existing as Profile, isLoading: false })
+        }
+        return
+      }
+
+      // First-time login: upsert profile row
       const newProfile = {
-        id:          user.id,
-        email:       user.email ?? '',
-        full_name:   user.user_metadata?.full_name ?? user.user_metadata?.name ?? '',
-        avatar_url:  user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
-        role:        null,        // Pending approval
+        id:          userId,
+        email:       authEmail,
+        full_name:   authName,
+        avatar_url:  authAvatar,
+        role:        null,
         is_approved: false,
       }
 
-      const { data: created } = await supabase
+      const { data: created, error: upsertError } = await supabase
         .from('profiles')
         .upsert(newProfile, { onConflict: 'id' })
         .select()
-        .single()
+        .maybeSingle()
+
+      if (upsertError) {
+        console.error('[fetchProfile] upsert error:', upsertError.message)
+      }
 
       set({ profile: (created ?? newProfile) as Profile | null, isLoading: false })
-    } else {
+
+    } catch (err) {
+      console.error('[fetchProfile] unexpected error:', err)
       set({ isLoading: false })
     }
   },
@@ -78,7 +98,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 /** Initialize auth listener — call once at app startup */
 export function initAuth() {
-  // Restore existing session
   supabase.auth.getSession().then(({ data: { session } }) => {
     useAuthStore.getState().setSession(session)
     if (session?.user) {
@@ -88,7 +107,6 @@ export function initAuth() {
     }
   })
 
-  // Listen to auth changes (login, logout, token refresh)
   supabase.auth.onAuthStateChange((_event, session) => {
     useAuthStore.getState().setSession(session)
     if (session?.user) {
