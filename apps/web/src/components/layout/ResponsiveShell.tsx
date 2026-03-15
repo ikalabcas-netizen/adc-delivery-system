@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Menu, X, LogOut, User, ChevronRight } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { FeedbackCallout } from '@/components/FeedbackCallout'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -133,6 +134,9 @@ export function ResponsiveShell({ navItems, accentColor = '#06b6d4', roleLabel, 
         }}>
           {children}
         </main>
+
+        {/* Kaizen feedback callout */}
+        <FeedbackCallout />
       </div>
 
       {/* CSS animations */}
