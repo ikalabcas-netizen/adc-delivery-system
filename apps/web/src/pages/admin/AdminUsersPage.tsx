@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Search, CheckCircle, XCircle, Clock, UserCheck, ChevronDown, X } from 'lucide-react'
+import { Search, CheckCircle, XCircle, Clock, UserCheck, ChevronDown, X, AlertTriangle } from 'lucide-react'
 import { useUsers, useApproveUser, useRevokeUser } from '@/hooks/useUsers'
+import { useAuthStore } from '@/stores/authStore'
 import type { Profile, UserRole } from '@adc/shared-types'
 
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
@@ -107,8 +108,20 @@ export function AdminUsersPage() {
 
 // ─── User Card ────────────────────────────────────────────────────
 function UserCard({ user, onEdit, variant }: { user: Profile; onEdit: (p: Profile) => void; variant: 'pending' | 'approved' }) {
-  const revoke = useRevokeUser()
+  const revoke   = useRevokeUser()
+  const { profile: me } = useAuthStore()
   const roleInfo = user.role ? ROLE_MAP[user.role] : null
+  const [confirming, setConfirming] = useState(false)
+
+  // Super admin không được thu hồi
+  const canRevoke = variant === 'approved'
+    && user.role !== 'super_admin'
+    && user.id   !== me?.id
+
+  async function handleRevoke() {
+    await revoke.mutateAsync(user.id)
+    setConfirming(false)
+  }
 
   return (
     <div style={{
@@ -118,7 +131,7 @@ function UserCard({ user, onEdit, variant }: { user: Profile; onEdit: (p: Profil
       padding: '14px 16px',
       display: 'flex', alignItems: 'center', gap: 14,
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      transition: 'box-shadow 0.15s',
+      flexWrap: 'wrap',
     }}>
       {/* Avatar */}
       <div style={{ flexShrink: 0 }}>
@@ -135,7 +148,6 @@ function UserCard({ user, onEdit, variant }: { user: Profile; onEdit: (p: Profil
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{user.full_name ?? '—'}</span>
-          {/* Status badge */}
           {variant === 'pending' ? (
             <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: '#fffbeb', color: '#d97706', border: '1px solid rgba(217,119,6,0.2)' }}>
               ⏳ Chờ duyệt
@@ -149,48 +161,68 @@ function UserCard({ user, onEdit, variant }: { user: Profile; onEdit: (p: Profil
         <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {user.email ?? 'Chưa có email'}
         </p>
-        <p style={{ fontSize: 11, color: '#cbd5e1', margin: '1px 0 0' }}>
-          Đăng ký {new Date(user.created_at).toLocaleDateString('vi-VN')}
-        </p>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-        {variant === 'pending' && (
-          <button onClick={() => onEdit(user)} style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '7px 14px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
-            color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-            boxShadow: '0 2px 8px rgba(6,182,212,0.3)',
-          }}>
-            <CheckCircle size={13} /> Duyệt
-          </button>
-        )}
-        {variant === 'approved' && (
-          <button onClick={() => onEdit(user)} style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '7px 12px', background: '#f8fafc',
-            color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8,
-            fontSize: 12, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-          }}>
-            <ChevronDown size={13} /> Sửa
-          </button>
-        )}
-        {variant === 'approved' && (
+      {/* Actions hoặc Inline confirm */}
+      {confirming ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 12px', background: '#fff1f2',
+          borderRadius: 10, border: '1px solid rgba(225,29,72,0.15)',
+        }}>
+          <AlertTriangle size={13} color="#e11d48" />
+          <span style={{ fontSize: 12, color: '#e11d48', fontFamily: 'Outfit, sans-serif' }}>Thu hồi quyền?</span>
           <button
-            onClick={() => { if (confirm('Thu hồi quyền truy cập của người này?')) revoke.mutate(user.id) }}
+            onClick={handleRevoke}
             disabled={revoke.isPending}
-            style={{
+            style={{ padding: '4px 10px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}
+          >
+            {revoke.isPending ? '...' : 'Xác nhận'}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            style={{ padding: '4px 8px', background: 'transparent', color: '#94a3b8', border: 'none', cursor: 'pointer', fontSize: 11, fontFamily: 'Outfit, sans-serif' }}
+          >
+            Huỷ
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {variant === 'pending' && (
+            <button onClick={() => onEdit(user)} style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              padding: '7px 12px', background: '#fff1f2',
-              color: '#e11d48', border: '1px solid rgba(225,29,72,0.15)', borderRadius: 8,
+              padding: '7px 14px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+              color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+              boxShadow: '0 2px 8px rgba(6,182,212,0.3)',
+            }}>
+              <CheckCircle size={13} /> Duyệt
+            </button>
+          )}
+          {variant === 'approved' && (
+            <button onClick={() => onEdit(user)} style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '7px 12px', background: '#f8fafc',
+              color: '#475569', border: '1px solid #e2e8f0', borderRadius: 8,
               fontSize: 12, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
             }}>
-            <XCircle size={13} /> Thu hồi
-          </button>
-        )}
-      </div>
+              <ChevronDown size={13} /> Sửa
+            </button>
+          )}
+          {canRevoke && (
+            <button
+              onClick={() => setConfirming(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '7px 12px', background: '#fff1f2',
+                color: '#e11d48', border: '1px solid rgba(225,29,72,0.15)', borderRadius: 8,
+                fontSize: 12, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+              }}>
+              <XCircle size={13} /> Thu hồi
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
