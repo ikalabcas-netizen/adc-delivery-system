@@ -193,7 +193,7 @@ function OrderCard({ order, onAssign, onClick }: { order: Order; onAssign: () =>
           {/* Action buttons based on status */}
           {order.status === 'pending' && !confirmDelete && (
             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-              <button onClick={onAssign} style={{
+              <button onClick={(e) => { e.stopPropagation(); onAssign() }} style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 16px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
                 color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
@@ -205,14 +205,14 @@ function OrderCard({ order, onAssign, onClick }: { order: Order; onAssign: () =>
               <button title="Sửa" style={actionBtn('#475569', '#f8fafc')}>
                 <Edit2 size={13} />
               </button>
-              <button onClick={() => setConfirmDelete(true)} title="Xoá" style={actionBtn('#e11d48', '#fff1f2')}>
+              <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }} title="Xoá" style={actionBtn('#e11d48', '#fff1f2')}>
                 <Trash2 size={13} />
               </button>
             </div>
           )}
 
           {order.status === 'assigned' && (
-            <button onClick={onAssign} style={{
+            <button onClick={(e) => { e.stopPropagation(); onAssign() }} style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 16px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
               color: '#fff', border: 'none', borderRadius: 8,
