@@ -5,6 +5,7 @@ import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 import { OrdersPage } from './OrdersPage'
 import { LocationsPage } from './LocationsPage'
 import { TripsPage } from './TripsPage'
+import { MapPage } from './MapPage'
 
 const NAV_ITEMS = [
   { to: '/coordinator/orders',    icon: ClipboardList, label: 'Đơn hàng' },
@@ -96,14 +97,6 @@ function CoordinatorSidebar() {
   )
 }
 
-function MapPlaceholder() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40vh', gap: 12 }}>
-      <Map size={32} color="#adc" style={{ opacity: 0.3 }} />
-      <p style={{ fontFamily: 'Outfit, sans-serif', color: '#94a3b8', fontSize: 14 }}>Bản đồ Realtime — đang phát triển</p>
-    </div>
-  )
-}
 
 export function CoordinatorLayout() {
   return (
@@ -113,7 +106,7 @@ export function CoordinatorLayout() {
         <Routes>
           <Route path="orders"    element={<OrdersPage />} />
           <Route path="trips"     element={<TripsPage />} />
-          <Route path="map"       element={<MapPlaceholder />} />
+          <Route path="map"       element={<MapPage />} />
           <Route path="locations" element={<LocationsPage />} />
           <Route path="profile"   element={<ProfileSettingsPage />} />
           <Route path="*"         element={<OrdersPage />} />
