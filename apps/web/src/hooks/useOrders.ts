@@ -130,3 +130,53 @@ export function useCancelOrder() {
     },
   })
 }
+
+/**
+ * Delete an order (only pending orders should be deletable).
+ */
+export function useDeleteOrder() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ORDERS_KEY })
+    },
+  })
+}
+
+/**
+ * Fetch approved delivery drivers for assignment dropdown.
+ */
+export function useDeliveryDrivers() {
+  return useQuery({
+    queryKey: ['drivers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url, phone, vehicle_plate, vehicle_type')
+        .eq('is_approved', true)
+        .in('role', ['delivery', 'coordinator', 'super_admin'])
+        .order('full_name')
+
+      if (error) throw error
+      return data as Array<{
+        id: string
+        full_name: string | null
+        avatar_url: string | null
+        phone: string | null
+        vehicle_plate: string | null
+        vehicle_type: string | null
+      }>
+    },
+    staleTime: 1000 * 60 * 5, // 5min — drivers don't change often
+  })
+}
+
