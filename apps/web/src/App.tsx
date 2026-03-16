@@ -8,7 +8,8 @@ import { CoordinatorLayout } from '@/pages/coordinator/CoordinatorLayout'
 import { MonitorLayout } from '@/pages/monitor/MonitorLayout'
 import { AdminLayout } from '@/pages/admin/AdminLayout'
 import { DeliveryLayout } from '@/pages/delivery/DeliveryLayout'
-import { SalesLayout } from '@/pages/sales/SalesLayout'
+import { SalesLayout }        from '@/pages/sales/SalesLayout'
+import { AccountantLayout }   from '@/pages/accounting/AccountantLayout'
 import { FullPageSpinner } from '@/components/ui/Spinner'
 import type { Session } from '@supabase/supabase-js'
 import type { Profile } from '@adc/shared-types'
@@ -106,6 +107,16 @@ function AuthenticatedRoutes({ role }: { role: string }) {
         }
       />
 
+      {/* Accounting */}
+      <Route
+        path="/accounting/*"
+        element={
+          <ProtectedRoute allowedRoles={['accountant', 'manager', 'super_admin']}>
+            <AccountantLayout />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Default: redirect by role */}
       <Route path="*" element={<RoleRedirect role={role} />} />
     </Routes>
@@ -115,8 +126,9 @@ function AuthenticatedRoutes({ role }: { role: string }) {
 function RoleRedirect({ role }: { role?: string }) {
   if (role === 'super_admin') return <Navigate to="/admin/users" replace />
   if (role === 'coordinator') return <Navigate to="/coordinator/dashboard" replace />
-  if (role === 'sales') return <Navigate to="/sales/orders" replace />
-  if (role === 'manager') return <Navigate to="/coordinator/dashboard" replace />
+  if (role === 'sales')       return <Navigate to="/sales/orders" replace />
+  if (role === 'accountant')  return <Navigate to="/accounting/overview" replace />
+  if (role === 'manager')     return <Navigate to="/coordinator/dashboard" replace />
   if (role === 'delivery') return <Navigate to="/delivery/orders" replace />
   return <Navigate to="/pending" replace />
 }

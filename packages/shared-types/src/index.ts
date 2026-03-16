@@ -10,6 +10,7 @@ export type UserRole =
   | 'sales'
   | 'manager'
   | 'delivery'
+  | 'accountant'
 
 // ---- Profiles ----
 export interface Profile {
@@ -79,8 +80,12 @@ export interface Order {
   trip_id:              string | null
   scheduled_at:         string | null
   delivered_at:         string | null
-  rejection_note:       string | null
-  created_at:           string
+  rejection_note:             string | null
+  extra_fee:                  number | null
+  extra_fee_note:             string | null
+  extra_fee_status:           'pending' | 'approved' | 'rejected' | null
+  extra_fee_rejected_reason:  string | null
+  created_at:                 string
 }
 
 // ---- Shifts ----
@@ -165,5 +170,31 @@ export interface OrderEvent {
 }
 
 // ---- Supabase DB type placeholder ----
-// Replace with generated types after: `supabase gen types typescript`
 export type Database = Record<string, unknown>
+
+// ---- Payment Vouchers ----
+export type VoucherStatus = 'pending' | 'paid' | 'confirmed'
+
+export interface PaymentVoucher {
+  id:           string
+  driver_id:    string
+  driver?:      Profile | null
+  voucher_code: string
+  total_amount: number
+  status:       VoucherStatus
+  note:         string | null
+  created_by:   string | null
+  paid_at:      string | null
+  confirmed_at: string | null
+  created_at:   string
+  items?:       PaymentVoucherItem[]
+}
+
+export interface PaymentVoucherItem {
+  id:         string
+  voucher_id: string
+  order_id:   string
+  order?:     Order | null
+  amount:     number
+  created_at: string
+}
