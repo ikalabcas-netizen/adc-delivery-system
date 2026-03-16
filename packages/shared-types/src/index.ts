@@ -72,6 +72,7 @@ export interface Order {
   status:               OrderStatus
   note:                 string | null
   proof_photo_url:      string | null
+  delivery_proof_url:   string | null
   assigned_to:          string | null
   assigned_driver?:     Profile | null
   coordinated_by:       string | null

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import {
   X, Clock, Package, Truck, CheckCircle, XCircle,
-  MapPin, Phone, User, RotateCcw, ArrowRight,
+  MapPin, Phone, User, RotateCcw, ArrowRight, Route, Camera, Download,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { Order } from '@adc/shared-types'
@@ -23,6 +23,7 @@ interface OrderEvent {
 const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; icon: React.ReactNode }> = {
   pending:    { label: 'Chờ xử lý', bg: '#fffbeb', color: '#d97706', icon: <Clock size={12} /> },
   assigned:   { label: 'Đã gán',    bg: '#eff6ff', color: '#2563eb', icon: <Package size={12} /> },
+  staging:    { label: 'Đang xếp chuyến', bg: '#ecfeff', color: '#0891b2', icon: <Route size={12} /> },
   in_transit: { label: 'Đang giao', bg: '#f3f0ff', color: '#7c3aed', icon: <Truck size={12} /> },
   delivered:  { label: 'Đã giao',   bg: '#f0fdf4', color: '#059669', icon: <CheckCircle size={12} /> },
   cancelled:  { label: 'Đã huỷ',   bg: '#f8fafc', color: '#94a3b8', icon: <XCircle size={12} /> },
@@ -162,6 +163,11 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
             </div>
           )}
 
+          {/* Delivery Proof Photo */}
+          {order.delivery_proof_url && (
+            <DeliveryProofPhoto url={order.delivery_proof_url} />
+          )}
+
           {/* ── Timeline ─────────────────────── */}
           <div style={{ marginTop: 6 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: 10 }}>
@@ -239,6 +245,108 @@ export function OrderDetailModal({ order, onClose }: OrderDetailModalProps) {
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Delivery Proof Photo ─────────────────────────────
+function DeliveryProofPhoto({ url }: { url: string }) {
+  const [lightbox, setLightbox] = useState(false)
+
+  return (
+    <>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '0.06em', color: '#94a3b8', marginBottom: 8,
+          display: 'flex', alignItems: 'center', gap: 5,
+        }}>
+          <Camera size={11} color="#059669" /> Ảnh xác nhận giao hàng
+        </div>
+
+        {/* Thumbnail — click to open lightbox */}
+        <div
+          onClick={() => setLightbox(true)}
+          style={{ cursor: 'zoom-in', borderRadius: 10, overflow: 'hidden', position: 'relative' }}
+        >
+          <img
+            src={url}
+            alt="Delivery proof"
+            style={{
+              width: '100%', maxHeight: 220, objectFit: 'cover',
+              display: 'block',
+              border: '2px solid #059669',
+              borderRadius: 10,
+            }}
+          />
+          {/* Hover overlay hint */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            borderRadius: 10,
+            transition: 'background 0.15s',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.15)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0)')}
+          >
+            <span style={{
+              fontSize: 11, color: '#fff', padding: '3px 10px', borderRadius: 20,
+              background: 'rgba(0,0,0,0.45)',
+            }}>🔍 Nhấn để xem toàn màn hình</span>
+          </div>
+        </div>
+
+        {/* Download link */}
+        <a
+          href={url}
+          download
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 11, color: '#0891b2', textDecoration: 'none', fontWeight: 600,
+          }}
+        >
+          <Download size={11} /> Tải ảnh xuống
+        </a>
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 16, cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={url}
+            alt="Delivery proof full"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '100%', maxHeight: '90vh',
+              borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+              cursor: 'default',
+            }}
+          />
+          <button
+            onClick={() => setLightbox(false)}
+            style={{
+              position: 'fixed', top: 16, right: 16,
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.15)', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: '#fff',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+    </>
   )
 }
 
