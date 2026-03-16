@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/theme.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -28,8 +27,9 @@ class _TripsScreenState extends State<TripsScreen> {
       final userId = _supabase.auth.currentUser?.id;
       final res = await _supabase
           .from('trips')
-          .select('*, orders(id, code, status, delivery_location:locations!orders_delivery_location_id_fkey(name))')
+          .select('*, orders(id)')
           .eq('driver_id', userId!)
+          .eq('status', 'active')
           .order('created_at', ascending: false)
           .limit(50);
       if (mounted) {
@@ -39,12 +39,7 @@ class _TripsScreenState extends State<TripsScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi tải chuyến: $e')),
-        );
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -82,10 +77,10 @@ class _TripsScreenState extends State<TripsScreen> {
         children: [
           Icon(Icons.route_rounded, size: 56, color: Colors.grey[300]),
           const SizedBox(height: 12),
-          Text('Chưa có chuyến đi nào',
+          Text('Không có chuyến đang giao',
               style: TextStyle(fontSize: 15, color: Colors.grey[500])),
-          const SizedBox(height: 8),
-          Text('Nhận ≥3 đơn đang giao để tạo chuyến tự động',
+          const SizedBox(height: 6),
+          Text('Xếp chuyến từ tab Đã nhận',
               style: TextStyle(fontSize: 13, color: Colors.grey[400])),
         ],
       ),
@@ -100,17 +95,14 @@ class _TripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = trip['status'] as String? ?? 'planned';
     final orders = trip['orders'] as List<dynamic>? ?? [];
     final createdAt = _formatDate(trip['created_at']);
 
-    final (statusLabel, statusColor) = switch (status) {
-      'active'    => ('Đang chạy', const Color(0xFF2563EB)),
-      'completed' => ('Hoàn thành', const Color(0xFF059669)),
-      _           => ('Kế hoạch', const Color(0xFFD97706)),
-    };
-
     return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 0,
+      color: Colors.white,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
@@ -119,13 +111,15 @@ class _TripCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 48, height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0A3444),
-                  borderRadius: BorderRadius.circular(10),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0891B2), Color(0xFF0C4A6E)],
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.route_rounded, color: Colors.white, size: 22),
+                child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -133,14 +127,19 @@ class _TripCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Chuyến ${createdAt}',
-                      style: GoogleFonts.outfit(
-                          fontSize: 15, fontWeight: FontWeight.w600),
+                      'Chuyến $createdAt',
+                      style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF0f172a)),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${orders.length} điểm giao',
-                      style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined, size: 13, color: Color(0xFF0891B2)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${orders.length} đơn hàng',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF0891B2), fontWeight: FontWeight.w500),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -148,15 +147,12 @@ class _TripCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
+                  color: const Color(0xFF059669).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor),
+                child: const Text(
+                  'Đang giao',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF059669)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -172,7 +168,7 @@ class _TripCard extends StatelessWidget {
     if (ts == null) return '—';
     try {
       final dt = DateTime.parse(ts.toString()).toLocal();
-      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } catch (_) {
       return '—';
     }

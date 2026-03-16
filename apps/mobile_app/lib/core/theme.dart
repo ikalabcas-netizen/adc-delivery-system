@@ -168,6 +168,7 @@ class AppTheme {
   static const statusColors = {
     'pending':    Color(0xFFD97706), // amber-600
     'assigned':   Color(0xFF2563EB), // blue-600
+    'staging':    Color(0xFF0891B2), // cyan-600
     'in_transit': Color(0xFF7C3AED), // violet-600
     'delivered':  Color(0xFF059669), // green-600
     'cancelled':  Color(0xFF94A3B8), // slate-400
@@ -177,6 +178,7 @@ class AppTheme {
   static const statusLabels = {
     'pending':    'Chờ xử lý',
     'assigned':   'Đã gán',
+    'staging':    'Đang xếp chuyến',
     'in_transit': 'Đang giao',
     'delivered':  'Đã giao',
     'cancelled':  'Đã huỷ',

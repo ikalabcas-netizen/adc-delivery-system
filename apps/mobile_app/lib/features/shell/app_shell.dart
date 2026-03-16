@@ -10,7 +10,7 @@ class AppShell extends StatelessWidget {
     final loc = GoRouterState.of(context).matchedLocation;
     if (loc.startsWith('/trips')) return 1;
     if (loc.startsWith('/profile')) return 2;
-    return 0; // /orders
+    return 0;
   }
 
   @override
@@ -21,12 +21,9 @@ class AppShell extends StatelessWidget {
         selectedIndex: _index(context),
         onDestinationSelected: (i) {
           switch (i) {
-            case 0:
-              context.go('/orders');
-            case 1:
-              context.go('/trips');
-            case 2:
-              context.go('/profile');
+            case 0: context.go('/orders');
+            case 1: context.go('/trips');
+            case 2: context.go('/profile');
           }
         },
         destinations: const [
@@ -36,8 +33,8 @@ class AppShell extends StatelessWidget {
             label: 'Đơn hàng',
           ),
           NavigationDestination(
-            icon: Icon(Icons.route_outlined),
-            selectedIcon: Icon(Icons.route_rounded),
+            icon: Icon(Icons.local_shipping_outlined),
+            selectedIcon: Icon(Icons.local_shipping_rounded),
             label: 'Chuyến đi',
           ),
           NavigationDestination(

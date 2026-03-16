@@ -9,7 +9,7 @@ import '../features/orders/order_detail_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/trips/trips_screen.dart';
-import '../features/trips/trip_detail_screen.dart';
+import '../features/trips/trip_orders_screen.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -71,7 +71,7 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: ':id',
-              builder: (_, state) => TripDetailScreen(
+              builder: (_, state) => TripOrdersScreen(
                 tripId: state.pathParameters['id']!,
               ),
             ),

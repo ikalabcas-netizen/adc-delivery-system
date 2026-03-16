@@ -56,6 +56,7 @@ export type OrderType   = 'delivery' | 'pickup' | 'mixed'
 export type OrderStatus =
   | 'pending'
   | 'assigned'
+  | 'staging'
   | 'in_transit'
   | 'delivered'
   | 'cancelled'

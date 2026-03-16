@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User } from 'lucide-react'
+ import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User, Route } from 'lucide-react'
 import { usePaginatedOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { CreateOrderPanel } from './CreateOrderPanel'
 import { EditOrderPanel } from './EditOrderPanel'
 import { OrderDetailModal } from '@/components/order/OrderDetailModal'
@@ -8,22 +10,43 @@ import { Pagination } from '@/components/Pagination'
 import type { Order, OrderStatus } from '@adc/shared-types'
 
 const TABS: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'all',        label: 'Tất cả',     icon: <Package size={13} />,       color: '#475569' },
-  { key: 'pending',    label: 'Chờ xử lý',  icon: <Clock size={13} />,         color: '#d97706' },
-  { key: 'assigned',   label: 'Đã gán',     icon: <UserPlus size={13} />,      color: '#2563eb' },
-  { key: 'in_transit', label: 'Đang giao',  icon: <Truck size={13} />,         color: '#7c3aed' },
-  { key: 'delivered',  label: 'Đã giao',    icon: <CheckCircle size={13} />,   color: '#059669' },
-
-  { key: 'cancelled',  label: 'Huỷ',        icon: <XCircle size={13} />,       color: '#94a3b8' },
+  { key: 'all',        label: 'Tất cả',       icon: <Package size={13} />,       color: '#475569' },
+  { key: 'pending',    label: 'Chờ xử lý',   icon: <Clock size={13} />,         color: '#d97706' },
+  { key: 'assigned',   label: 'Đã gán',       icon: <UserPlus size={13} />,      color: '#2563eb' },
+  { key: 'staging',    label: 'Đang xếp chuyến', icon: <Route size={13} />,      color: '#0891b2' },
+  { key: 'in_transit', label: 'Đang giao',    icon: <Truck size={13} />,         color: '#7c3aed' },
+  { key: 'delivered',  label: 'Đã giao',      icon: <CheckCircle size={13} />,   color: '#059669' },
+  { key: 'cancelled',  label: 'Huỷ',           icon: <XCircle size={13} />,       color: '#94a3b8' },
 ]
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  pending:    { label: 'Chờ xử lý', bg: '#fffbeb', color: '#d97706' },
-  assigned:   { label: 'Đã gán',    bg: '#eff6ff', color: '#2563eb' },
-  in_transit: { label: 'Đang giao', bg: '#f3f0ff', color: '#7c3aed' },
-  delivered:  { label: 'Đã giao',   bg: '#f0fdf4', color: '#059669' },
+  pending:    { label: 'Chờ xử lý',    bg: '#fffbeb', color: '#d97706' },
+  assigned:   { label: 'Đã gán',       bg: '#eff6ff', color: '#2563eb' },
+  staging:    { label: 'Đang xếp chuyến', bg: '#ecfeff', color: '#0891b2' },
+  in_transit: { label: 'Đang giao',    bg: '#f3f0ff', color: '#7c3aed' },
+  delivered:  { label: 'Đã giao',     bg: '#f0fdf4', color: '#059669' },
+  cancelled:  { label: 'Đã huỷ',     bg: '#f8fafc', color: '#94a3b8' },
+}
 
-  cancelled:  { label: 'Đã huỷ',   bg: '#f8fafc', color: '#94a3b8' },
+// ─── Hook: count per status ───────────────────────────────
+function useOrderCounts() {
+  return useQuery({
+    queryKey: ['order-counts'],
+    queryFn: async () => {
+      const statuses: (OrderStatus | 'all')[] = ['pending', 'assigned', 'staging', 'in_transit', 'delivered', 'cancelled']
+      const counts: Record<string, number> = { all: 0 }
+      await Promise.all(statuses.map(async (s) => {
+        const { count } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', s as string)
+        counts[s] = count ?? 0
+        counts.all = (counts.all ?? 0) + (count ?? 0)
+      }))
+      return counts
+    },
+    staleTime: 1000 * 30,
+  })
 }
 
 export function OrdersPage() {
@@ -34,9 +57,9 @@ export function OrdersPage() {
   const [editingOrder, setEditingOrder]     = useState<Order | null>(null)
   const [detailOrder, setDetailOrder]       = useState<Order | null>(null)
   const { data, isLoading } = usePaginatedOrders(page, tab)
+  const { data: counts = {} } = useOrderCounts()
 
   const orders     = data?.items ?? []
-  const totalCount = data?.totalCount ?? 0
   const totalPages = data?.totalPages ?? 1
   const pageSize   = data?.pageSize ?? 20
 
@@ -50,10 +73,7 @@ export function OrdersPage() {
     <div style={{ fontFamily: 'Outfit, sans-serif', maxWidth: 900 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>Đơn hàng</h1>
-          <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{totalCount} đơn</p>
-        </div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>Đơn hàng</h1>
         <button
           onClick={() => setShowCreate(true)}
           style={{
@@ -72,6 +92,7 @@ export function OrdersPage() {
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map(t => {
           const isActive = tab === t.key
+          const count = counts[t.key]
           return (
             <button
               key={t.key}
@@ -86,7 +107,7 @@ export function OrdersPage() {
                 fontFamily: 'Outfit, sans-serif',
               }}
             >
-              {t.icon} {t.label}
+              {t.icon} {t.label}{count != null && count > 0 ? ` (${count})` : ''}
             </button>
           )
         })}
@@ -112,7 +133,7 @@ export function OrdersPage() {
               />
             ))}
           </div>
-          <Pagination page={page} totalPages={totalPages} totalItems={totalCount} pageSize={pageSize} onPageChange={setPage} />
+          <Pagination page={page} totalPages={totalPages} totalItems={counts.all ?? 0} pageSize={pageSize} onPageChange={setPage} />
         </>
       )}
 
