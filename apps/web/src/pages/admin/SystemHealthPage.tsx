@@ -78,15 +78,29 @@ async function checkSupabaseAuth(): Promise<Partial<ServiceResult>> {
 
 async function checkSupabaseStorage(): Promise<Partial<ServiceResult>> {
   const t0 = Date.now()
+  // listBuckets() requires service role — probe known buckets instead
+  const KNOWN_BUCKETS = ['odometer-photos', 'feedback-photos', 'avatars']
   try {
-    const { data: buckets, error } = await supabase.storage.listBuckets()
+    const results = await Promise.all(
+      KNOWN_BUCKETS.map(async (bucket) => {
+        const { error } = await supabase.storage.from(bucket).list('', { limit: 1 })
+        // error.message 'Bucket not found' means bucket doesn't exist
+        // null error or other errors (RLS denied) means bucket EXISTS
+        if (!error) return { bucket, exists: true }
+        if (error.message?.includes('not found') || error.message?.includes('does not exist')) return { bucket, exists: false }
+        return { bucket, exists: true } // RLS denied = bucket exists
+      })
+    )
     const latencyMs = Date.now() - t0
-    if (error) throw error
+    const found = results.filter(r => r.exists).map(r => r.bucket)
+    if (found.length === 0) {
+      return { status: 'warning', latencyMs, detail: `Storage API phản hồi nhưng không tìm thấy bucket nào · ${latencyMs}ms` }
+    }
     return {
       status: 'healthy',
       latencyMs,
-      usageLabel: `${buckets?.length ?? 0} buckets`,
-      detail: `Storage API hoạt động · ${buckets?.length ?? 0} buckets · Latency ${latencyMs}ms`,
+      usageLabel: `${found.length} buckets: ${found.join(', ')}`,
+      detail: `Storage kết nối · ${found.length}/${KNOWN_BUCKETS.length} buckets hoạt động · Latency ${latencyMs}ms`,
     }
   } catch {
     return { status: 'offline', detail: 'Storage không phản hồi' }
