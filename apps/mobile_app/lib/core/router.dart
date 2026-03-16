@@ -11,6 +11,8 @@ import '../features/shell/app_shell.dart';
 import '../features/trips/trips_screen.dart';
 import '../features/trips/trip_orders_screen.dart';
 import '../features/shifts/shift_screen.dart';
+import '../features/feedback/feedback_screen.dart';
+import '../features/payments/payment_history_screen.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -88,13 +90,11 @@ final router = GoRouter(
         ),
         GoRoute(
           path: '/feedback',
-          builder: (_, __) => const _PlaceholderScreen(
-            title: 'Góp ý', icon: Icons.feedback_outlined),
+          builder: (_, __) => const FeedbackScreen(),
         ),
         GoRoute(
           path: '/payment-history',
-          builder: (_, __) => const _PlaceholderScreen(
-            title: 'Phụ phí & Chi trả', icon: Icons.receipt_long_outlined),
+          builder: (_, __) => const PaymentHistoryScreen(),
         ),
       ],
     ),

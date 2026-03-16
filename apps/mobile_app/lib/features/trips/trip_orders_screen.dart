@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -262,6 +261,17 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
   String? _error;
   String _status = '';
 
+  // Extra fee
+  final _feeCtrl  = TextEditingController();
+  final _noteCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _feeCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
   // CAMERA ONLY — no gallery
   Future<void> _captureAndStamp() async {
     setState(() { _error = null; });
@@ -307,9 +317,14 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
 
       final publicUrl = _supabase.storage.from('delivery-proofs').getPublicUrl(path);
 
+      final feeVal = int.tryParse(_feeCtrl.text.trim());
       await _supabase.from('orders').update({
         'status': 'delivered',
         'delivery_proof_url': publicUrl,
+        if (feeVal != null && feeVal > 0) 'extra_fee': feeVal,
+        if (feeVal != null && feeVal > 0 && _noteCtrl.text.trim().isNotEmpty)
+          'extra_fee_note': _noteCtrl.text.trim(),
+        if (feeVal != null && feeVal > 0) 'extra_fee_status': 'pending',
       }).eq('id', orderId);
 
       if (mounted) {
@@ -421,6 +436,60 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
             if (_error != null)
               Padding(padding: const EdgeInsets.only(top: 8),
                 child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12))),
+
+            const SizedBox(height: 14),
+
+            // ── Optional extra fee ────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEFCE8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(children: [
+                    Icon(Icons.attach_money_rounded, size: 14, color: Color(0xFFD97706)),
+                    SizedBox(width: 4),
+                    Text('Phụ phí thêm (không bắt buộc)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFD97706))),
+                  ]),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _feeCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    decoration: InputDecoration(
+                      hintText: 'Số tiền (VD: 20000)',
+                      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
+                      suffixText: '₫',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFD97706), width: 2)),
+                      filled: true, fillColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _noteCtrl,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'Lý do phụ phí...',
+                      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFDE68A))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFD97706), width: 2)),
+                      filled: true, fillColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 14),
             SizedBox(

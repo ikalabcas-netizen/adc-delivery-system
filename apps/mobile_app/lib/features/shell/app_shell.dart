@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../shifts/daily_review_popup.dart';
 
 /// Bottom navigation shell
 /// Tab order (bên trái → phải): Ca làm việc | Đơn hàng | Chuyến đi
@@ -42,6 +43,10 @@ class _AppShellState extends State<AppShell> {
         .maybeSingle();
     if (mounted) {
       setState(() => _shiftStatus = row?['shift_status'] as String?);
+      // Check for unread daily review popup (1s delay so UI settles)
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) DailyReviewPopup.checkAndShow(context);
+      });
     }
   }
 
