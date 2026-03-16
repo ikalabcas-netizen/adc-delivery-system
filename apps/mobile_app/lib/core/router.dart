@@ -15,7 +15,7 @@ import '../features/shifts/shift_screen.dart';
 final supabase = Supabase.instance.client;
 
 final router = GoRouter(
-  initialLocation: '/orders',
+  initialLocation: '/shift',
   redirect: (context, state) {
     final session = supabase.auth.currentSession;
     final loc = state.matchedLocation;
@@ -23,17 +23,17 @@ final router = GoRouter(
     final isOnCallback = loc == '/login-callback';
 
     if (isOnCallback) {
-      return session != null ? '/orders' : '/login';
+      return session != null ? '/shift' : '/login';
     }
     if (session == null) {
       return isOnLogin ? null : '/login';
     }
-    if (isOnLogin) return '/orders';
+    if (isOnLogin) return '/shift';
     return null;
   },
   errorBuilder: (context, state) {
     final session = supabase.auth.currentSession;
-    return session != null ? const OrdersScreen() : const LoginScreen();
+    return session != null ? const ShiftScreen() : const LoginScreen();
   },
   routes: [
     GoRoute(
@@ -86,7 +86,50 @@ final router = GoRouter(
           path: '/profile',
           builder: (_, __) => const ProfileScreen(),
         ),
+        GoRoute(
+          path: '/feedback',
+          builder: (_, __) => const _PlaceholderScreen(
+            title: 'Góp ý', icon: Icons.feedback_outlined),
+        ),
+        GoRoute(
+          path: '/payment-history',
+          builder: (_, __) => const _PlaceholderScreen(
+            title: 'Phụ phí & Chi trả', icon: Icons.receipt_long_outlined),
+        ),
       ],
     ),
   ],
 );
+
+/// Temporary placeholder screen — replaced when full feature is built.
+class _PlaceholderScreen extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  const _PlaceholderScreen({required this.title, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: const Color(0xFF0891B2),
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 64, color: const Color(0xFFCBD5E1)),
+            const SizedBox(height: 16),
+            Text(title, style: const TextStyle(fontSize: 16, color: Color(0xFF94A3B8))),
+            const SizedBox(height: 6),
+            const Text(
+              'Tính năng đang được phát triển',
+              style: TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

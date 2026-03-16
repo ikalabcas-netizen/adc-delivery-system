@@ -1,38 +1,100 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Bottom navigation shell — Đơn hàng | Chuyến đi | Ca làm việc
-/// Profile moved to top-right hamburger menu.
-class AppShell extends StatelessWidget {
+/// Bottom navigation shell
+/// Tab order (bên trái → phải): Ca làm việc | Đơn hàng | Chuyến đi
+/// Profile / Góp ý / Đăng xuất → hamburger menu (top-right).
+class AppShell extends StatefulWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
-  static const _tabs = ['/orders', '/trips', '/shift'];
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  static const _tabs = ['/shift', '/orders', '/trips'];
+  String? _shiftStatus; // 'on_shift' | 'off_shift' | null
+  StreamSubscription? _sub;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadShiftStatus();
+    _subscribeShiftStatus();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadShiftStatus() async {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    final row = await Supabase.instance.client
+        .from('profiles')
+        .select('shift_status')
+        .eq('id', uid)
+        .maybeSingle();
+    if (mounted) {
+      setState(() => _shiftStatus = row?['shift_status'] as String?);
+    }
+  }
+
+  void _subscribeShiftStatus() {
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    _sub = Supabase.instance.client
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', uid)
+        .listen((rows) {
+          if (!mounted || rows.isEmpty) return;
+          setState(() => _shiftStatus = rows.first['shift_status'] as String?);
+        });
+  }
 
   int _tabIndex(BuildContext context) {
     final loc = GoRouterState.of(context).matchedLocation;
-    if (loc.startsWith('/trips'))  return 1;
-    if (loc.startsWith('/shift'))  return 2;
+    if (loc.startsWith('/shift'))  return 0;
+    if (loc.startsWith('/orders')) return 1;
+    if (loc.startsWith('/trips'))  return 2;
     return 0;
   }
+
+  bool get _isOnShift => _shiftStatus == 'on_shift';
 
   @override
   Widget build(BuildContext context) {
     final tabIndex = _tabIndex(context);
+
+    // If off-shift and accessing orders/trips → show gate overlay
+    final bool locked = !_isOnShift && tabIndex != 0;
+
     return Scaffold(
-      body: child,
+      body: Stack(
+        children: [
+          widget.child,
+          if (locked) ShiftGateOverlay(
+            onGoToShift: () => context.go('/shift'),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tabIndex,
         onDestinationSelected: (i) {
-          switch (i) {
-            case 0: context.go('/orders'); break;
-            case 1: context.go('/trips');  break;
-            case 2: context.go('/shift');  break;
-          }
+          context.go(_tabs[i]);
         },
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.access_time_outlined),
+            selectedIcon: Icon(Icons.access_time_filled),
+            label: 'Ca làm việc',
+          ),
           NavigationDestination(
             icon: Icon(Icons.inbox_outlined),
             selectedIcon: Icon(Icons.inbox),
@@ -43,19 +105,75 @@ class AppShell extends StatelessWidget {
             selectedIcon: Icon(Icons.local_shipping),
             label: 'Chuyến đi',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.access_time_outlined),
-            selectedIcon: Icon(Icons.access_time_filled),
-            label: 'Ca làm việc',
-          ),
         ],
       ),
     );
   }
 }
 
+/// Overlay shown when driver hasn't started their shift.
+class ShiftGateOverlay extends StatelessWidget {
+  final VoidCallback onGoToShift;
+  const ShiftGateOverlay({super.key, required this.onGoToShift});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF0F172A).withOpacity(0.72),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 24, offset: const Offset(0, 8))],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64, height: 64, decoration: BoxDecoration(
+                  color: const Color(0xFFECFEFF), borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.lock_clock_rounded, size: 32, color: Color(0xFF0891B2)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Chưa vào ca làm việc',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Vui lòng vào ca để bắt đầu nhận\nvà giao đơn hàng.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.5),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: onGoToShift,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0891B2),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Vào Ca Ngay  →', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Hamburger menu button — shown in AppBar top-right.
-/// Wraps profile, feedback, logout.
 class HamburgerMenu extends StatelessWidget {
   const HamburgerMenu({super.key});
 
@@ -63,7 +181,6 @@ class HamburgerMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.menu_rounded, color: Colors.white),
-      // Force white background so text is always readable regardless of theme
       color: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -77,6 +194,10 @@ class HamburgerMenu extends StatelessWidget {
           value: 'feedback',
           child: _menuItem(Icons.feedback_outlined, 'Góp ý'),
         ),
+        PopupMenuItem(
+          value: 'payment',
+          child: _menuItem(Icons.receipt_long_outlined, 'Phụ phí & Chi trả'),
+        ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
@@ -88,8 +209,9 @@ class HamburgerMenu extends StatelessWidget {
           case 'profile':
             context.go('/profile');
           case 'feedback':
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Chức năng góp ý sẽ sớm ra mắt')));
+            context.go('/feedback');
+          case 'payment':
+            context.go('/payment-history');
           case 'logout':
             await Supabase.instance.client.auth.signOut();
             if (context.mounted) context.go('/login');
@@ -102,9 +224,8 @@ class HamburgerMenu extends StatelessWidget {
     Icon(icon, size: 18, color: color ?? const Color(0xFF0891B2)),
     const SizedBox(width: 10),
     Text(label, style: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w500,
-      color: color ?? const Color(0xFF1E293B), // slate-800 — high contrast on white
+      fontSize: 14, fontWeight: FontWeight.w500,
+      color: color ?? const Color(0xFF1E293B),
     )),
   ]);
 }

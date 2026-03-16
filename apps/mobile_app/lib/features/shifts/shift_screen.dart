@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'shift_service.dart';
+import 'odometer_capture_screen.dart';
 import '../shell/app_shell.dart';
 
 class ShiftScreen extends StatefulWidget {
@@ -60,9 +61,33 @@ class _ShiftScreenState extends State<ShiftScreen> {
   }
 
   Future<void> _startShift() async {
+    // Step 1: Odometer capture
+    final result = await Navigator.of(context).push<OdometerResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const OdometerCaptureScreen(isCheckIn: true),
+      ),
+    );
+    if (result == null || !mounted) return;
+
     setState(() => _processing = true);
     try {
-      await ShiftService.startShift();
+      // Step 2: Upload photo (need a temp shiftId — create shift first)
+      // We upload after we have the shiftId from startShift
+      // So we first start shift, then update with photo URL
+      final shiftId = await ShiftService.startShift(
+        kmIn: result.kmValue,
+        photoInUrl: '', // placeholder, will update below
+      );
+      final photoUrl = await ShiftService.uploadOdometerPhoto(
+        photo: result.photo,
+        shiftId: shiftId,
+        isCheckIn: true,
+      );
+      // Update shift record with real photo URL
+      await Supabase.instance.client.from('driver_shifts')
+          .update({'odometer_photo_in_url': photoUrl}).eq('id', shiftId);
+
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,15 +102,36 @@ class _ShiftScreenState extends State<ShiftScreen> {
   }
 
   Future<void> _endShift() async {
+    // Step 1: Odometer capture for check-out
+    final kmIn = _activeShift?['km_in'] as int?;
+    final result = await Navigator.of(context).push<OdometerResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => OdometerCaptureScreen(isCheckIn: false, previousKm: kmIn),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    // Step 2: Confirm dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => _EndShiftDialog(shift: _activeShift!),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() => _processing = true);
     try {
-      await ShiftService.endShift(_activeShift!['id'] as String);
+      final shiftId = _activeShift!['id'] as String;
+      final photoUrl = await ShiftService.uploadOdometerPhoto(
+        photo: result.photo,
+        shiftId: shiftId,
+        isCheckIn: false,
+      );
+      await ShiftService.endShift(
+        shiftId,
+        kmOut: result.kmValue,
+        photoOutUrl: photoUrl,
+      );
       _timer?.cancel();
       await _load();
       if (mounted) {
@@ -183,6 +229,13 @@ class _ShiftScreenState extends State<ShiftScreen> {
                       'Ca từ ${_fmtTime(_activeShift!['started_at'] as String)}  •  ${_fmtElapsed(_elapsed)}',
                       style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.7)),
                     ),
+                    if (_activeShift!['km_in'] != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '🛥 Km vào ca: ${_activeShift!['km_in']} km',
+                        style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.6)),
+                      ),
+                    ],
                   ],
                 ],
               ),
