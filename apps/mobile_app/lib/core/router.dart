@@ -10,6 +10,7 @@ import '../features/profile/profile_screen.dart';
 import '../features/shell/app_shell.dart';
 import '../features/trips/trips_screen.dart';
 import '../features/trips/trip_orders_screen.dart';
+import '../features/shifts/shift_screen.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -76,6 +77,10 @@ final router = GoRouter(
               ),
             ),
           ],
+        ),
+        GoRoute(
+          path: '/shift',
+          builder: (_, __) => const ShiftScreen(),
         ),
         GoRoute(
           path: '/profile',

@@ -83,8 +83,22 @@ export interface Order {
   created_at:           string
 }
 
+// ---- Shifts ----
+export type ShiftStatus  = 'off_shift' | 'on_shift'
+export type DriverStatus = 'free' | 'delivering'
+
+export interface DriverShift {
+  id:          string
+  driver_id:   string
+  started_at:  string
+  ended_at:    string | null
+  status:      ShiftStatus
+  status_log:  Array<{ status: DriverStatus; ts: string }>
+  created_at:  string
+}
+
 // ---- Trips ----
-export type TripStatus = 'planned' | 'active' | 'completed'
+export type TripStatus = 'active' | 'completed'
 
 export interface RouteStop {
   orderId:    string

@@ -1,6 +1,7 @@
 import { useState } from 'react'
- import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User, Route } from 'lucide-react'
+import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User, Route } from 'lucide-react'
 import { usePaginatedOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
+import { useDriverStatusMap } from '@/hooks/useDriverStatus'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { CreateOrderPanel } from './CreateOrderPanel'
@@ -300,6 +301,7 @@ function actionBtn(color: string, bg: string): React.CSSProperties {
 // ─── Assign Driver Modal ──────────────────────────────
 function AssignDriverModal({ order, onClose }: { order: Order; onClose: () => void }) {
   const { data: drivers = [], isLoading } = useDeliveryDrivers()
+  const statusMap = useDriverStatusMap()
   const updateStatus = useUpdateOrderStatus()
   const [selected, setSelected] = useState<string | null>(order.assigned_to ?? null)
 
@@ -386,9 +388,18 @@ function AssignDriverModal({ order, onClose }: { order: Order; onClose: () => vo
                 )}
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', margin: 0 }}>{d.full_name ?? '—'}</p>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-                    {d.vehicle_plate ? `🚗 ${d.vehicle_plate}` : ''}{d.phone ? ` · ${d.phone}` : ''}
-                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                      {d.vehicle_plate ? `🚗 ${d.vehicle_plate}` : ''}{d.phone ? ` · ${d.phone}` : ''}
+                    </span>
+                    {/* Realtime shift status badge */}
+                    {(() => {
+                      const s = statusMap[d.id]
+                      if (!s || s.shift_status === 'off_shift') return <span style={{ fontSize: 10, color: '#94a3b8', padding: '1px 6px', background: '#f1f5f9', borderRadius: 10 }}>⚫ Nghỉ</span>
+                      if (s.driver_status === 'delivering')      return <span style={{ fontSize: 10, color: '#d97706', padding: '1px 6px', background: '#fffbeb', borderRadius: 10 }}>🟡 Đang giao</span>
+                      return <span style={{ fontSize: 10, color: '#059669', padding: '1px 6px', background: '#f0fdf4', borderRadius: 10 }}>🟢 Đang rảnh</span>
+                    })()}
+                  </div>
                 </div>
                 {selected === d.id && <CheckCircle size={16} color="#06b6d4" />}
               </button>

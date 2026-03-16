@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme.dart';
 import 'delivery_proof_helper.dart';
+import 'trip_service.dart';
 
 final _supabase = Supabase.instance.client;
 final _picker   = ImagePicker();
@@ -51,9 +52,24 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _CompleteOrderSheet(
         order: order,
-        onDone: _fetch,
+        onDone: _afterOrderAction,
       ),
     );
+  }
+
+  // After any order action: refresh + check if trip is done
+  Future<void> _afterOrderAction() async {
+    await _fetch();
+    final done = await TripService.checkAndCompleteTrip(widget.tripId);
+    if (done && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🎉 Tất cả đơn đã hoàn thành — Chuyến đi đã kết thúc!'),
+          backgroundColor: Color(0xFF059669),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   void _onFail(Map<String, dynamic> order) {
@@ -63,7 +79,7 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _FailOrderSheet(
         order: order,
-        onDone: _fetch,
+        onDone: _afterOrderAction,
       ),
     );
   }

@@ -3,9 +3,8 @@ import { useTrips } from '@/hooks/useTrips'
 import type { Trip, TripStatus } from '@adc/shared-types'
 
 const STATUS_MAP: Record<TripStatus, { label: string; bg: string; color: string }> = {
-  planned:   { label: 'Đã lên kế hoạch', bg: '#eff6ff', color: '#2563eb' },
-  active:    { label: 'Đang chạy',       bg: '#f3f0ff', color: '#7c3aed' },
-  completed: { label: 'Hoàn thành',      bg: '#f0fdf4', color: '#059669' },
+  active:    { label: 'Đang chạy',  bg: '#f3f0ff', color: '#7c3aed' },
+  completed: { label: 'Hoàn thành', bg: '#f0fdf4', color: '#059669' },
 }
 
 export function TripsPage() {
