@@ -268,7 +268,7 @@ function OrderCard({ order, onAssign, onEdit, onClick }: { order: Order; onAssig
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#06b6d4', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: '#475569' }}>{pickup?.name ?? '—'}</span>
+              <span style={{ fontSize: 17, fontWeight: 600, color: '#475569' }}>{pickup?.name ?? '—'}</span>
             </div>
             <div style={{ width: 1, height: 12, background: '#e2e8f0', marginLeft: 3.5 }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
