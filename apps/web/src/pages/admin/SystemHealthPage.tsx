@@ -151,12 +151,37 @@ async function checkOpenRouteService(): Promise<Partial<ServiceResult>> {
   }
 }
 
-async function checkDeepSeek(): Promise<Partial<ServiceResult>> {
-  // Read from system_settings in DB
+// Shared helper: load AI config once
+async function loadAIConfig() {
   const { data } = await supabase.from('system_settings').select('value').eq('key', 'ai_config').maybeSingle()
-  const cfg = data?.value as { provider?: string; api_key?: string; enabled?: boolean } | null
+  return data?.value as { provider?: string; api_key?: string; enabled?: boolean } | null
+}
+
+async function checkOpenRouter(): Promise<Partial<ServiceResult>> {
+  const cfg = await loadAIConfig()
+  if (!cfg?.enabled) return { status: 'warning', detail: 'AI chưa được bật trong Cấu hình hệ thống' }
+  if (cfg.provider !== 'openrouter') return { status: 'warning', detail: `Provider hiện tại: ${cfg.provider ?? '—'} (không phải OpenRouter)` }
+  if (!cfg.api_key) return { status: 'warning', detail: 'OpenRouter API key chưa được nhập trong Cấu hình' }
+  const t0 = Date.now()
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models', {
+      headers: { 'Authorization': `Bearer ${cfg.api_key}` },
+    })
+    const latencyMs = Date.now() - t0
+    if (res.status === 401 || res.status === 403) return { status: 'critical', latencyMs, detail: 'API key không hợp lệ (401/403)' }
+    if (!res.ok) return { status: 'warning', latencyMs, detail: `HTTP ${res.status}` }
+    const json = await res.json()
+    const modelCount = json?.data?.length ?? 0
+    return { status: 'healthy', latencyMs, detail: `OpenRouter hoạt động · ${modelCount} models khả dụng · Latency ${latencyMs}ms` }
+  } catch {
+    return { status: 'offline', detail: 'Không kết nối được OpenRouter' }
+  }
+}
+
+async function checkDeepSeek(): Promise<Partial<ServiceResult>> {
+  const cfg = await loadAIConfig()
   if (!cfg?.enabled) return { status: 'warning', detail: 'AI chưa được bật trong Cấu hình' }
-  if (cfg.provider !== 'deepseek') return { status: 'warning', detail: `Provider hiện tại: ${cfg.provider ?? '—'} (không phải DeepSeek)` }
+  if (cfg.provider !== 'deepseek') return { status: 'warning', detail: `Provider hiện tại: ${cfg.provider ?? '—'} · Chọn DeepSeek để kích hoạt` }
   if (!cfg.api_key) return { status: 'warning', detail: 'DeepSeek API key chưa cấu hình' }
   const t0 = Date.now()
   try {
@@ -173,10 +198,9 @@ async function checkDeepSeek(): Promise<Partial<ServiceResult>> {
 }
 
 async function checkGemini(): Promise<Partial<ServiceResult>> {
-  const { data } = await supabase.from('system_settings').select('value').eq('key', 'ai_config').maybeSingle()
-  const cfg = data?.value as { provider?: string; api_key?: string; enabled?: boolean } | null
+  const cfg = await loadAIConfig()
   if (!cfg?.enabled) return { status: 'warning', detail: 'AI chưa bật trong Cấu hình' }
-  if (cfg.provider !== 'gemini') return { status: 'warning', detail: `Provider hiện tại: ${cfg.provider ?? '—'} (không phải Gemini)` }
+  if (cfg.provider !== 'gemini') return { status: 'warning', detail: `Provider hiện tại: ${cfg.provider ?? '—'} · Chọn Gemini để kích hoạt` }
   if (!cfg.api_key) return { status: 'warning', detail: 'Gemini API key chưa cấu hình' }
   const t0 = Date.now()
   try {
@@ -203,8 +227,9 @@ const SERVICES: Array<{
   { id: 'supabase-rt',      name: 'Supabase Realtime',  description: 'WebSocket · kênh realtime',         icon: <Wifi size={18} color="#7c3aed" />,        check: checkSupabaseRealtime },
   { id: 'mapbox',           name: 'Mapbox',             description: 'Bản đồ & điều hướng · token',       icon: <Map size={18} color="#d97706" />,         check: checkMapbox },
   { id: 'openroute',        name: 'OpenRouteService',   description: 'Tính toán tuyến đường · API key',   icon: <Navigation size={18} color="#059669" />,  check: checkOpenRouteService },
-  { id: 'deepseek',         name: 'DeepSeek AI',        description: 'AI phân tích · API key',            icon: <Cpu size={18} color="#0891b2" />,         check: checkDeepSeek },
-  { id: 'gemini',           name: 'Gemini AI',          description: 'AI review nightly · API key',       icon: <Cpu size={18} color="#4285f4" />,         check: checkGemini },
+  { id: 'openrouter',       name: 'OpenRouter AI',      description: 'AI tổng hợp · free models',         icon: <Cpu size={18} color="#7c3aed" />,         check: checkOpenRouter },
+  { id: 'deepseek',         name: 'DeepSeek AI',        description: 'AI phân tích · trực tiếp',          icon: <Cpu size={18} color="#0891b2" />,         check: checkDeepSeek },
+  { id: 'gemini',           name: 'Gemini AI',          description: 'AI review nightly · Google',        icon: <Cpu size={18} color="#4285f4" />,         check: checkGemini },
 ]
 
 // ── Progress bar ───────────────────────────────────────────────────────
