@@ -62,14 +62,7 @@ class HamburgerMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: Container(
-        width: 36, height: 36,
-        decoration: BoxDecoration(
-          color: const Color(0xFF0A3444).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Icon(Icons.menu_rounded, size: 20, color: Color(0xFF0A3444)),
-      ),
+      icon: const Icon(Icons.menu_rounded, color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       offset: const Offset(0, 44),
       itemBuilder: (_) => [
