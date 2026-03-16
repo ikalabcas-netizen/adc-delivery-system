@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../shell/app_shell.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -52,7 +53,11 @@ class _TripsScreenState extends State<TripsScreen> {
       backgroundColor: const Color(0xFFEFF6FF),
       appBar: AppBar(
         title: const Text('Chuyến đi'),
-        actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch)],
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch),
+          const HamburgerMenu(),
+          const SizedBox(width: 4),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme.dart';
 import '../trips/trip_service.dart';
+import '../shell/app_shell.dart';
 
 // ─── Main Screen ────────────────────────────────────────────
 /// Tabs: Chờ nhận | Đã nhận
@@ -194,6 +195,8 @@ class _OrdersScreenState extends State<OrdersScreen>
         ),
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetchOrders),
+          const HamburgerMenu(),
+          const SizedBox(width: 4),
         ],
       ),
       body: Stack(

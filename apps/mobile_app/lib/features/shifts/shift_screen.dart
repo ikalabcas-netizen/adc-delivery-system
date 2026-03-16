@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'shift_service.dart';
+import '../shell/app_shell.dart';
 
 class ShiftScreen extends StatefulWidget {
   const ShiftScreen({super.key});
@@ -128,7 +129,10 @@ class _ShiftScreenState extends State<ShiftScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFEFF6FF),
-      appBar: AppBar(title: const Text('Ca làm việc')),
+      appBar: AppBar(
+        title: const Text('Ca làm việc'),
+        actions: const [HamburgerMenu(), SizedBox(width: 4)],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
