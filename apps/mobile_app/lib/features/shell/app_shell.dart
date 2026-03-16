@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../shifts/daily_review_popup.dart';
 
+
 /// Bottom navigation shell
 /// Tab order (bên trái → phải): Ca làm việc | Đơn hàng | Chuyến đi
 /// Profile / Góp ý / Đăng xuất → hamburger menu (top-right).
@@ -15,22 +16,36 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   static const _tabs = ['/shift', '/orders', '/trips'];
   String? _shiftStatus; // 'on_shift' | 'off_shift' | null
   StreamSubscription? _sub;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadShiftStatus();
     _subscribeShiftStatus();
+    // Poll every 30s as safety net in case Realtime is slow
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadShiftStatus());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
+  }
+
+  // Re-fetch when app comes back to foreground
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadShiftStatus();
+    }
   }
 
   Future<void> _loadShiftStatus() async {
@@ -93,6 +108,8 @@ class _AppShellState extends State<AppShell> {
         selectedIndex: tabIndex,
         onDestinationSelected: (i) {
           context.go(_tabs[i]);
+          // Re-fetch shift status every time user taps a tab
+          _loadShiftStatus();
         },
         destinations: const [
           NavigationDestination(
