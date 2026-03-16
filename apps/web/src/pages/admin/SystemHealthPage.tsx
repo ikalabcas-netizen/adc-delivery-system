@@ -78,29 +78,36 @@ async function checkSupabaseAuth(): Promise<Partial<ServiceResult>> {
 
 async function checkSupabaseStorage(): Promise<Partial<ServiceResult>> {
   const t0 = Date.now()
-  // listBuckets() requires service role — probe known buckets instead
-  const KNOWN_BUCKETS = ['odometer-photos', 'feedback-photos', 'avatars']
   try {
-    const results = await Promise.all(
-      KNOWN_BUCKETS.map(async (bucket) => {
-        const { error } = await supabase.storage.from(bucket).list('', { limit: 1 })
-        // error.message 'Bucket not found' means bucket doesn't exist
-        // null error or other errors (RLS denied) means bucket EXISTS
-        if (!error) return { bucket, exists: true }
-        if (error.message?.includes('not found') || error.message?.includes('does not exist')) return { bucket, exists: false }
-        return { bucket, exists: true } // RLS denied = bucket exists
-      })
-    )
+    // get_storage_usage() reads storage.objects via SECURITY DEFINER — works with anon key
+    const { data, error } = await supabase.rpc('get_storage_usage')
     const latencyMs = Date.now() - t0
-    const found = results.filter(r => r.exists).map(r => r.bucket)
-    if (found.length === 0) {
-      return { status: 'warning', latencyMs, detail: `Storage API phản hồi nhưng không tìm thấy bucket nào · ${latencyMs}ms` }
+    if (error) throw error
+
+    const rows = data as Array<{ bucket_name: string; file_count: number; total_bytes: number }>
+    if (!rows || rows.length === 0) {
+      return { status: 'healthy', latencyMs, detail: `Storage kết nối · Chưa có file nào · Latency ${latencyMs}ms` }
     }
+
+    // Supabase free: 1 GB storage total
+    const LIMIT_BYTES = 1 * 1024 * 1024 * 1024
+    const totalBytes = rows.reduce((s, r) => s + Number(r.total_bytes), 0)
+    const totalMB = totalBytes / 1024 / 1024
+    const pct = Math.min(100, Math.round((totalBytes / LIMIT_BYTES) * 100))
+
+    const bucketLines = rows
+      .map(r => {
+        const mb = (Number(r.total_bytes) / 1024 / 1024).toFixed(2)
+        return `${r.bucket_name}: ${r.file_count} files · ${mb} MB`
+      })
+      .join(' | ')
+
     return {
-      status: 'healthy',
+      status: pct >= 90 ? 'critical' : pct >= 70 ? 'warning' : 'healthy',
       latencyMs,
-      usageLabel: `${found.length} buckets: ${found.join(', ')}`,
-      detail: `Storage kết nối · ${found.length}/${KNOWN_BUCKETS.length} buckets hoạt động · Latency ${latencyMs}ms`,
+      usagePercent: pct,
+      usageLabel: `${totalMB.toFixed(1)} MB / 1,024 MB Free · ${rows.length} buckets`,
+      detail: `${bucketLines} · Latency ${latencyMs}ms`,
     }
   } catch {
     return { status: 'offline', detail: 'Storage không phản hồi' }
