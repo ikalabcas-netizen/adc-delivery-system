@@ -106,19 +106,37 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
   }
 
-  // ── Stage / unstage an order ─────────────────────────────
-  void _toggleStage(String orderId) {
+  // ── Stage / unstage ────────────────────────────────────
+  Future<void> _toggleStage(String orderId) async {
+    final isAdding = !_staged.contains(orderId);
     setState(() {
-      if (_staged.contains(orderId)) {
-        _staged.remove(orderId);
-      } else {
-        _staged.add(orderId);
-      }
+      if (isAdding) { _staged.add(orderId); }
+      else           { _staged.remove(orderId); }
     });
+    // Immediately write status to DB for real-time visibility on web
+    try {
+      await _supabase.from('orders').update({
+        'status': isAdding ? 'staging' : 'assigned',
+      }).eq('id', orderId);
+    } catch (_) {
+      // Revert local state if DB failed
+      setState(() {
+        if (isAdding) { _staged.remove(orderId); }
+        else           { _staged.add(orderId); }
+      });
+    }
   }
 
-  void _cancelTripMode() {
+  // Revert all staged orders back to 'assigned' and clear selection
+  Future<void> _cancelTripMode() async {
+    final toRevert = _staged.toList();
     setState(() => _staged.clear());
+    if (toRevert.isEmpty) return;
+    try {
+      await _supabase.from('orders')
+          .update({'status': 'assigned'})
+          .inFilter('id', toRevert);
+    } catch (_) {}
   }
 
   // ── Start trip: create trip + set orders in_transit ──────
@@ -127,13 +145,8 @@ class _OrdersScreenState extends State<OrdersScreen>
     setState(() => _buildingTrip = true);
     Navigator.of(context).pop(); // close bottom sheet
     try {
-      // Mark staged orders as staging in DB first
-      await _supabase
-          .from('orders')
-          .update({'status': 'staging'})
-          .inFilter('id', _staged.toList());
-
       final tripId = await TripService.createAndStartTrip(_staged.toList());
+      // Note: TripService.createAndStartTrip already sets status → in_transit
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,9 +184,9 @@ class _OrdersScreenState extends State<OrdersScreen>
       builder: (_) => _TripAssemblySheet(
         stagedOrders: stagedOrders,
         onStart: _startTrip,
-        onRemove: (id) {
+        onRemove: (id) async {
           Navigator.of(context).pop();
-          _toggleStage(id);
+          await _toggleStage(id); // writes 'assigned' back to DB
         },
       ),
     );

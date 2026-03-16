@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User, Route } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Clock, Truck, CheckCircle, XCircle, Package, AlertTriangle, UserPlus, Edit2, Trash2, X, User, Route, CalendarRange } from 'lucide-react'
 import { usePaginatedOrders, useUpdateOrderStatus, useDeleteOrder, useDeliveryDrivers } from '@/hooks/useOrders'
 import { useDriverStatusMap } from '@/hooks/useDriverStatus'
 import { useQuery } from '@tanstack/react-query'
@@ -9,6 +9,29 @@ import { EditOrderPanel } from './EditOrderPanel'
 import { OrderDetailModal } from '@/components/order/OrderDetailModal'
 import { Pagination } from '@/components/Pagination'
 import type { Order, OrderStatus } from '@adc/shared-types'
+
+// ── Time period helper ──────────────────────────────────
+type TimePeriod = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom'
+function getDateRange(period: TimePeriod): { from?: string; to?: string } {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const toISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+  if (period === 'today') {
+    const s = toISO(now)
+    return { from: `${s}T00:00:00`, to: `${s}T23:59:59` }
+  }
+  if (period === 'week') {
+    const d = new Date(now); d.setDate(now.getDate() - now.getDay())
+    return { from: `${toISO(d)}T00:00:00`, to: `${toISO(now)}T23:59:59` }
+  }
+  if (period === 'month') {
+    return { from: `${now.getFullYear()}-${pad(now.getMonth()+1)}-01T00:00:00`, to: `${toISO(now)}T23:59:59` }
+  }
+  if (period === 'year') {
+    return { from: `${now.getFullYear()}-01-01T00:00:00`, to: `${toISO(now)}T23:59:59` }
+  }
+  return {}
+}
 
 const TABS: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode; color: string }[] = [
   { key: 'all',        label: 'Tất cả',       icon: <Package size={13} />,       color: '#475569' },
@@ -57,18 +80,25 @@ export function OrdersPage() {
   const [assigningOrder, setAssigningOrder] = useState<Order | null>(null)
   const [editingOrder, setEditingOrder]     = useState<Order | null>(null)
   const [detailOrder, setDetailOrder]       = useState<Order | null>(null)
-  const { data, isLoading } = usePaginatedOrders(page, tab)
+  // Time filter state
+  const [timePeriod, setTimePeriod]         = useState<TimePeriod>('all')
+  const [customFrom, setCustomFrom]         = useState('')
+  const [customTo, setCustomTo]             = useState('')
+
+  const { from: dateFrom, to: dateTo } = useMemo(() => {
+    if (timePeriod === 'custom') return { from: customFrom || undefined, to: customTo ? `${customTo}T23:59:59` : undefined }
+    return getDateRange(timePeriod)
+  }, [timePeriod, customFrom, customTo])
+
+  const { data, isLoading } = usePaginatedOrders(page, tab, dateFrom, dateTo)
   const { data: counts = {} } = useOrderCounts()
 
   const orders     = data?.items ?? []
   const totalPages = data?.totalPages ?? 1
   const pageSize   = data?.pageSize ?? 20
 
-  // Reset page when switching tabs
-  function handleTabChange(newTab: OrderStatus | 'all') {
-    setTab(newTab)
-    setPage(1)
-  }
+  function handleTabChange(newTab: OrderStatus | 'all') { setTab(newTab); setPage(1) }
+  function handlePeriodChange(p: TimePeriod) { setTimePeriod(p); setPage(1) }
 
   return (
     <div style={{ fontFamily: 'Outfit, sans-serif', maxWidth: 900 }}>
@@ -89,7 +119,46 @@ export function OrdersPage() {
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* Time period filter */}
+      {(() => {
+        const periods: { key: TimePeriod; label: string }[] = [
+          { key: 'today', label: 'Hôm nay' },
+          { key: 'week',  label: 'Tuần này' },
+          { key: 'month', label: 'Tháng này' },
+          { key: 'year',  label: 'Năm này' },
+          { key: 'all',   label: 'Toàn bộ' },
+          { key: 'custom',label: 'Khoảng thời gian' },
+        ]
+        return (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+              <CalendarRange size={13} color="#94a3b8" style={{ marginRight: 2 }} />
+              {periods.map(p => (
+                <button key={p.key} onClick={() => handlePeriodChange(p.key)} style={{
+                  padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                  cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
+                  border: timePeriod === p.key ? 'none' : '1px solid #e2e8f0',
+                  background: timePeriod === p.key ? '#0891b2' : '#fff',
+                  color: timePeriod === p.key ? '#fff' : '#64748b',
+                  transition: 'all 0.1s',
+                }}>{p.label}</button>
+              ))}
+            </div>
+            {timePeriod === 'custom' && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>Từ</span>
+                <input type="date" value={customFrom} onChange={e => { setCustomFrom(e.target.value); setPage(1) }}
+                  style={{ padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 12, fontFamily: 'Outfit, sans-serif', color: '#0f172a', outline: 'none' }} />
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>đến</span>
+                <input type="date" value={customTo} onChange={e => { setCustomTo(e.target.value); setPage(1) }}
+                  style={{ padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 12, fontFamily: 'Outfit, sans-serif', color: '#0f172a', outline: 'none' }} />
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Status tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map(t => {
           const isActive = tab === t.key
@@ -204,7 +273,7 @@ function OrderCard({ order, onAssign, onEdit, onClick }: { order: Order; onAssig
             <div style={{ width: 1, height: 12, background: '#e2e8f0', marginLeft: 3.5 }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#d97706', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: '#475569' }}>{delivery?.name ?? '—'}</span>
+              <span style={{ fontSize: 17, fontWeight: 600, color: '#0f172a' }}>{delivery?.name ?? '—'}</span>
             </div>
           </div>
 
@@ -269,19 +338,25 @@ function OrderCard({ order, onAssign, onEdit, onClick }: { order: Order; onAssig
             </button>
           )}
 
-          {/* Inline delete confirm */}
+          {/* Inline delete confirm — stopPropagation so card click doesn't open detail */}
           {confirmDelete && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: '#fff1f2', borderRadius: 8, border: '1px solid rgba(225,29,72,0.15)' }}>
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', background: '#fff1f2', borderRadius: 8, border: '1px solid rgba(225,29,72,0.15)' }}
+            >
               <AlertTriangle size={12} color="#e11d48" />
-              <span style={{ fontSize: 11, color: '#e11d48' }}>Xoá?</span>
+              <span style={{ fontSize: 11, color: '#e11d48' }}>Xoá đơn này?</span>
               <button
-                onClick={async () => { await deleteOrder.mutateAsync(order.id); setConfirmDelete(false) }}
+                onClick={async e => { e.stopPropagation(); await deleteOrder.mutateAsync(order.id); setConfirmDelete(false) }}
                 disabled={deleteOrder.isPending}
-                style={{ padding: '3px 8px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                style={{ padding: '3px 10px', background: '#e11d48', color: '#fff', border: 'none', borderRadius: 5, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
               >
-                {deleteOrder.isPending ? '...' : 'OK'}
+                {deleteOrder.isPending ? '...' : 'Xác nhận'}
               </button>
-              <button onClick={() => setConfirmDelete(false)} style={{ padding: '3px 6px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 10 }}>Huỷ</button>
+              <button
+                onClick={e => { e.stopPropagation(); setConfirmDelete(false) }}
+                style={{ padding: '3px 6px', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 10 }}
+              >Huỷ</button>
             </div>
           )}
         </div>

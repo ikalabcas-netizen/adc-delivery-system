@@ -43,11 +43,16 @@ const PAGE_SIZE = 20
 /**
  * Fetch paginated orders from DB using .range().
  */
-export function usePaginatedOrders(page: number, statusFilter?: OrderStatus | 'all') {
+export function usePaginatedOrders(
+  page: number,
+  statusFilter?: OrderStatus | 'all',
+  dateFrom?: string,
+  dateTo?: string,
+) {
   const effectiveStatus = statusFilter === 'all' ? undefined : statusFilter
 
   return useQuery({
-    queryKey: [...ORDERS_KEY, 'paginated', page, effectiveStatus],
+    queryKey: [...ORDERS_KEY, 'paginated', page, effectiveStatus, dateFrom, dateTo],
     queryFn: async () => {
       const from = (page - 1) * PAGE_SIZE
       const to = from + PAGE_SIZE - 1
@@ -63,9 +68,9 @@ export function usePaginatedOrders(page: number, statusFilter?: OrderStatus | 'a
         .order('created_at', { ascending: false })
         .range(from, to)
 
-      if (effectiveStatus) {
-        query = query.eq('status', effectiveStatus)
-      }
+      if (effectiveStatus) query = query.eq('status', effectiveStatus)
+      if (dateFrom)         query = query.gte('created_at', dateFrom)
+      if (dateTo)           query = query.lte('created_at', dateTo)
 
       const { data, error, count } = await query
       if (error) throw error
@@ -77,9 +82,10 @@ export function usePaginatedOrders(page: number, statusFilter?: OrderStatus | 'a
       }
     },
     staleTime: 1000 * 30,
-    placeholderData: (prev) => prev, // keep old data while loading new page
+    placeholderData: (prev) => prev,
   })
 }
+
 
 interface CreateOrderInput {
   pickup_location_id: string
