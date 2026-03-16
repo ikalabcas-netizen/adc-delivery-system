@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { ClipboardList, Map, MapPin, Route as RouteIcon, GitBranchPlus, BarChart3 } from 'lucide-react'
+import { ClipboardList, Map, MapPin, Route as RouteIcon, GitBranchPlus, BarChart3, TrendingUp } from 'lucide-react'
 import { ResponsiveShell, NavItem } from '@/components/layout/ResponsiveShell'
 import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 import { OrdersPage } from './OrdersPage'
@@ -8,11 +8,13 @@ import { TripsPage } from './TripsPage'
 import { MapPage } from './MapPage'
 import { DeliveryRoutesPage } from './DeliveryRoutesPage'
 import { DashboardPage } from './DashboardPage'
+import { PerformancePage } from './PerformancePage'
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/coordinator/dashboard', icon: BarChart3,      label: 'Dashboard' },
   { to: '/coordinator/orders',    icon: ClipboardList,  label: 'Đơn hàng' },
-  { to: '/coordinator/trips',     icon: RouteIcon,      label: 'Chuyến đi' },
+  { to: '/coordinator/trips',       icon: RouteIcon,     label: 'Chuyến đi' },
+  { to: '/coordinator/performance',  icon: TrendingUp,    label: 'Hiệu suất' },
   { to: '/coordinator/map',       icon: Map,            label: 'Bản đồ' },
   { to: '/coordinator/locations', icon: MapPin,         label: 'Địa điểm' },
   { to: '/coordinator/routes',    icon: GitBranchPlus,  label: 'Tuyến GN' },
@@ -29,7 +31,8 @@ export function CoordinatorLayout() {
       <Routes>
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="orders"    element={<OrdersPage />} />
-        <Route path="trips"     element={<TripsPage />} />
+        <Route path="trips"        element={<TripsPage />} />
+        <Route path="performance"  element={<PerformancePage />} />
         <Route path="map"       element={<MapPage />} />
         <Route path="locations" element={<LocationsPage />} />
         <Route path="routes"    element={<DeliveryRoutesPage />} />
