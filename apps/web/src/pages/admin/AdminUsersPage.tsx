@@ -9,6 +9,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string; color: string }[] = [
   { value: 'coordinator', label: 'Điều phối viên', color: '#2563eb' },
   { value: 'sales',       label: 'Kinh doanh',     color: '#0891b2' },
   { value: 'manager',     label: 'Quản lý',        color: '#059669' },
+  { value: 'accountant',  label: 'Kế toán',        color: '#0d9488' },
   { value: 'delivery',    label: 'Giao nhận',      color: '#d97706' },
 ]
 
@@ -17,6 +18,7 @@ const ROLE_MAP: Record<string, { label: string; bg: string; color: string }> = {
   coordinator: { label: 'Điều phối viên', bg: '#eff6ff', color: '#2563eb' },
   sales:       { label: 'Kinh doanh',     bg: '#ecfeff', color: '#0891b2' },
   manager:     { label: 'Quản lý',        bg: '#f0fdf4', color: '#059669' },
+  accountant:  { label: 'Kế toán',        bg: '#f0fdfa', color: '#0d9488' },
   delivery:    { label: 'Giao nhận',      bg: '#fffbeb', color: '#d97706' },
 }
 
