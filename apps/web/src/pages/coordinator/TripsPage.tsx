@@ -35,7 +35,7 @@ export function TripsPage() {
 }
 
 function TripCard({ trip }: { trip: Trip }) {
-  const status = STATUS_MAP[trip.status]
+  const status = STATUS_MAP[trip.status] ?? { label: trip.status, bg: '#f1f5f9', color: '#64748b' }
   const driver = trip.driver
 
   return (
