@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme.dart';
+import 'delivery_proof_helper.dart';
 
 final _supabase = Supabase.instance.client;
 final _picker   = ImagePicker();
@@ -228,7 +230,7 @@ class _OrderItem extends StatelessWidget {
   ]);
 }
 
-// ─── Complete Order Sheet (requires photo) ───────────────────
+// ─── Complete Order Sheet (camera only + stamp + upload) ─────
 class _CompleteOrderSheet extends StatefulWidget {
   final Map<String, dynamic> order;
   final VoidCallback onDone;
@@ -239,38 +241,56 @@ class _CompleteOrderSheet extends StatefulWidget {
 }
 
 class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
-  File? _photo;
+  Uint8List? _stampedBytes;   // stamped image bytes (shown as preview + uploaded)
   bool _uploading = false;
   String? _error;
+  String _status = '';
 
-  Future<void> _takePhoto() async {
-    final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 1280);
+  // CAMERA ONLY — no gallery
+  Future<void> _captureAndStamp() async {
+    setState(() { _error = null; });
+    final picked = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 78,
+      maxWidth: 1920,
+      preferredCameraDevice: CameraDevice.rear,
+    );
     if (picked == null) return;
-    setState(() { _photo = File(picked.path); _error = null; });
-  }
 
-  Future<void> _chooseFromGallery() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1280);
-    if (picked == null) return;
-    setState(() { _photo = File(picked.path); _error = null; });
+    setState(() => _status = 'Đang tạo stamp...');
+    try {
+      final raw = await picked.readAsBytes();
+      final delivery = widget.order['delivery_location'] as Map<String, dynamic>?;
+      final stamped = await stampDeliveryProof(
+        raw,
+        orderCode:   widget.order['code']?.toString() ?? '—',
+        locationName: delivery?['name']?.toString() ?? '—',
+        capturedAt:  DateTime.now(),
+      );
+      if (mounted) setState(() { _stampedBytes = stamped; _status = ''; });
+    } catch (e) {
+      if (mounted) setState(() { _error = 'Lỗi tạo stamp: $e'; _status = ''; });
+    }
   }
 
   Future<void> _confirm() async {
-    if (_photo == null) { setState(() => _error = 'Vui lòng chụp ảnh xác nhận giao hàng'); return; }
-    setState(() { _uploading = true; _error = null; });
+    if (_stampedBytes == null) {
+      setState(() => _error = 'Bắt buộc phải chụp ảnh xác nhận');
+      return;
+    }
+    setState(() { _uploading = true; _error = null; _status = 'Đang nén và tải ảnh...' ; });
     try {
       final orderId = widget.order['id'] as String;
-      final ext      = _photo!.path.split('.').last;
-      final path     = 'proofs/$orderId-${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final path    = 'proofs/$orderId-${DateTime.now().millisecondsSinceEpoch}.png';
 
-      // Upload photo
-      final bytes = await _photo!.readAsBytes();
-      await _supabase.storage.from('delivery-proofs').uploadBinary(path, bytes,
-        fileOptions: FileOptions(contentType: 'image/$ext', upsert: true));
+      // Upload stamped PNG (already compressed via imageQuality in picker)
+      await _supabase.storage.from('delivery-proofs').uploadBinary(
+        path, _stampedBytes!,
+        fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
+      );
 
       final publicUrl = _supabase.storage.from('delivery-proofs').getPublicUrl(path);
 
-      // Update order
       await _supabase.from('orders').update({
         'status': 'delivered',
         'delivery_proof_url': publicUrl,
@@ -279,17 +299,21 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✓ Đã hoàn thành đơn!'), backgroundColor: Color(0xFF059669)),
+          const SnackBar(
+            content: Text('✓ Đơn đã hoàn thành — ảnh đã lưu!'),
+            backgroundColor: Color(0xFF059669),
+          ),
         );
         widget.onDone();
       }
     } catch (e) {
-      if (mounted) setState(() { _error = 'Lỗi: $e'; _uploading = false; });
+      if (mounted) setState(() { _error = 'Lỗi upload: $e'; _uploading = false; _status = ''; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasPhoto = _stampedBytes != null;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
@@ -300,6 +324,7 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Handle
             Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(2)))),
             // Title
@@ -308,31 +333,72 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
                 decoration: BoxDecoration(color: const Color(0xFF059669).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                 child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF059669), size: 22)),
               const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('Hoàn thành đơn', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a))),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Hoàn thành đơn', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700)),
                 Text(widget.order['code']?.toString() ?? '', style: const TextStyle(fontSize: 12, color: Color(0xFF64748b))),
-              ]),
+              ])),
             ]),
-            const SizedBox(height: 16),
+            const SizedBox(height: 6),
+            const Text(
+              '📸 Chụp ảnh ngay lúc giao hàng. Ảnh sẽ được đóng dấu thời gian tự động.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 14),
 
-            // Photo preview or placeholder
+            // Photo area
             GestureDetector(
-              onTap: _takePhoto,
+              onTap: (_uploading || _status.isNotEmpty) ? null : _captureAndStamp,
               child: Container(
-                height: 180, width: double.infinity,
+                height: 190, width: double.infinity,
                 decoration: BoxDecoration(
-                  color: _photo != null ? null : const Color(0xFFF1F5F9),
+                  color: hasPhoto ? null : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _photo != null ? const Color(0xFF059669) : const Color(0xFFE2E8F0), width: 2),
+                  border: Border.all(
+                    color: hasPhoto ? const Color(0xFF059669) : const Color(0xFFE2E8F0),
+                    width: 2,
+                  ),
                 ),
-                child: _photo != null
-                    ? ClipRRect(borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_photo!, fit: BoxFit.cover, width: double.infinity))
-                    : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(Icons.add_a_photo_rounded, size: 48, color: Colors.grey[400]),
-                        const SizedBox(height: 8),
-                        Text('Nhấn để chụp ảnh xác nhận', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                      ]),
+                child: _status.isNotEmpty
+                    ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        const CircularProgressIndicator(strokeWidth: 2),
+                        const SizedBox(height: 10),
+                        Text(_status, style: const TextStyle(fontSize: 12, color: Color(0xFF64748b))),
+                      ])
+                    : hasPhoto
+                        ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(_stampedBytes!, fit: BoxFit.cover,
+                                    width: double.infinity, height: double.infinity),
+                              ),
+                              Positioned(
+                                top: 8, right: 8,
+                                child: GestureDetector(
+                                  onTap: _captureAndStamp,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                                      Icon(Icons.refresh_rounded, size: 13, color: Colors.white),
+                                      SizedBox(width: 4),
+                                      Text('Chụp lại', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                    ]),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            const Icon(Icons.add_a_photo_rounded, size: 52, color: Color(0xFF94A3B8)),
+                            const SizedBox(height: 10),
+                            Text('Nhấn để mở camera', style: TextStyle(color: Colors.grey[500], fontSize: 14, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 4),
+                            const Text('Chỉ chụp trực tiếp, không dùng thư viện', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 11)),
+                          ]),
               ),
             ),
 
@@ -340,36 +406,23 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
               Padding(padding: const EdgeInsets.only(top: 8),
                 child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12))),
 
-            const SizedBox(height: 12),
-            // Choose from gallery option
-            if (_photo == null)
-              TextButton.icon(
-                onPressed: _chooseFromGallery,
-                icon: const Icon(Icons.photo_library_rounded, size: 16),
-                label: const Text('Hoặc chọn từ thư viện ảnh', style: TextStyle(fontSize: 12)),
-              ),
-            if (_photo != null)
-              TextButton.icon(
-                onPressed: _uploading ? null : _takePhoto,
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Chụp lại', style: TextStyle(fontSize: 12)),
-              ),
-
-            const SizedBox(height: 12),
-            // Confirm button
+            const SizedBox(height: 14),
             SizedBox(
               width: double.infinity, height: 52,
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _photo != null ? const Color(0xFF059669) : const Color(0xFFCBD5E1),
+                  backgroundColor: hasPhoto ? const Color(0xFF059669) : const Color(0xFFCBD5E1),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                onPressed: _uploading ? null : _confirm,
+                onPressed: (_uploading || _status.isNotEmpty) ? null : _confirm,
                 icon: _uploading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.check_circle_rounded, size: 20),
-                label: Text(_uploading ? 'Đang tải ảnh...' : 'Xác nhận hoàn thành',
-                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700)),
+                label: Text(
+                  _uploading ? 'Đang tải ảnh...' : 'Xác nhận hoàn thành',
+                  style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ],
