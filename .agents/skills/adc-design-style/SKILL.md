@@ -15,6 +15,17 @@ description: >
 - **Animations**: đơn giản, `transition: all 0.15s ease` hoặc `cubic-bezier(0.4,0,0.2,1)`
 - **Border radius chuẩn**: card = 12–16px, button/input = 8–10px, badge = 20px (pill)
 
+### ⚠️ Quy tắc bắt buộc: Tương phản màu (Color Contrast)
+
+> **Màu chữ và màu nền KHÔNG ĐƯỢC trùng hoặc gần tông màu nhau. Phải có độ tương phản rõ rệt.**
+
+- **Nền tối (dark)** → chữ **trắng hoặc sáng** (`Colors.white`, `#F8FAFC`, `#E2E8F0`)
+- **Nền sáng (light/white)** → chữ **tối** (`#1E293B` slate-800, `#0F172A` slate-900)
+- **AppBar nền `#0A3444`** → icon/chữ màu `Colors.white` LUÔN LUÔN
+- **PopupMenu / Dropdown / Card** → phải set **màu nền tường minh** (`color: Colors.white` hoặc tối tường minh), KHÔNG để theme tự quyết (tránh dark mode làm chữ tối trên nền tối)
+- **Flutter**: dùng `color: Colors.white, surfaceTintColor: Colors.transparent` cho `PopupMenuButton` khi cần đảm bảo nền sáng
+- **Web**: dùng `background: '#fff'` tường minh cho dropdown/card thay vì `background: 'transparent'`
+
 ---
 
 ## 2. Bảng màu ADC (Cyan Palette)

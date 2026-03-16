@@ -63,6 +63,9 @@ class HamburgerMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.menu_rounded, color: Colors.white),
+      // Force white background so text is always readable regardless of theme
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       offset: const Offset(0, 44),
       itemBuilder: (_) => [
@@ -85,7 +88,6 @@ class HamburgerMenu extends StatelessWidget {
           case 'profile':
             context.go('/profile');
           case 'feedback':
-            // TODO: open feedback form
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Chức năng góp ý sẽ sớm ra mắt')));
           case 'logout':
@@ -97,8 +99,12 @@ class HamburgerMenu extends StatelessWidget {
   }
 
   Widget _menuItem(IconData icon, String label, {Color? color}) => Row(children: [
-    Icon(icon, size: 18, color: color ?? const Color(0xFF475569)),
+    Icon(icon, size: 18, color: color ?? const Color(0xFF0891B2)),
     const SizedBox(width: 10),
-    Text(label, style: TextStyle(fontSize: 14, color: color ?? const Color(0xFF0f172a))),
+    Text(label, style: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      color: color ?? const Color(0xFF1E293B), // slate-800 — high contrast on white
+    )),
   ]);
 }
