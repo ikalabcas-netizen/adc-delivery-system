@@ -1,8 +1,9 @@
 import { Routes, Route } from 'react-router-dom'
 import { Users, Settings, User, MessageSquarePlus } from 'lucide-react'
 import { ResponsiveShell, NavItem } from '@/components/layout/ResponsiveShell'
-import { AdminUsersPage } from './AdminUsersPage'
-import { KaizenPage } from './KaizenPage'
+import { AdminUsersPage }     from './AdminUsersPage'
+import { KaizenPage }         from './KaizenPage'
+import { SystemSettingsPage } from './SystemSettingsPage'
 import { ProfileSettingsPage } from '@/pages/ProfileSettingsPage'
 
 const NAV_ITEMS: NavItem[] = [
@@ -24,18 +25,10 @@ export function AdminLayout() {
         <Route path="users"   element={<AdminUsersPage />} />
         <Route path="kaizen"  element={<KaizenPage />} />
         <Route path="profile" element={<ProfileSettingsPage />} />
-        <Route path="system"  element={<SystemPlaceholder />} />
+        <Route path="system"  element={<SystemSettingsPage />} />
         <Route path="*"       element={<AdminUsersPage />} />
       </Routes>
     </ResponsiveShell>
   )
 }
 
-function SystemPlaceholder() {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '40vh', gap: 12 }}>
-      <Settings size={32} color="#adc" style={{ opacity: 0.3 }} />
-      <p style={{ fontFamily: 'Outfit, sans-serif', color: '#94a3b8', fontSize: 14 }}>Tính năng đang phát triển</p>
-    </div>
-  )
-}
