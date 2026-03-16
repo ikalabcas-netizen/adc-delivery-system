@@ -1,8 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme.dart';
 
+final _supabase = Supabase.instance.client;
+final _picker   = ImagePicker();
+
+/// Screen listing all orders inside a specific trip.
+/// Each order card has: Hoàn thành đơn (requires photo) | Không thành công (requires reason)
 class TripOrdersScreen extends StatefulWidget {
   final String tripId;
   const TripOrdersScreen({super.key, required this.tripId});
@@ -12,7 +19,6 @@ class TripOrdersScreen extends StatefulWidget {
 }
 
 class _TripOrdersScreenState extends State<TripOrdersScreen> {
-  final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _orders = [];
   bool _loading = true;
 
@@ -26,120 +32,344 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
     setState(() => _loading = true);
     try {
       final res = await _supabase.from('orders').select('''
-        id, code, status, note,
+        id, code, status, note, delivery_proof_url,
         pickup_location:locations!orders_pickup_location_id_fkey(id, name, address),
         delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
       ''').eq('trip_id', widget.tripId).order('created_at');
-      if (mounted) {
-        setState(() {
-          _orders = List<Map<String, dynamic>>.from(res);
-          _loading = false;
-        });
-      }
-    } catch (e) {
+      if (mounted) setState(() { _orders = List<Map<String, dynamic>>.from(res); _loading = false; });
+    } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  void _onComplete(Map<String, dynamic> order) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CompleteOrderSheet(
+        order: order,
+        onDone: _fetch,
+      ),
+    );
+  }
+
+  void _onFail(Map<String, dynamic> order) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FailOrderSheet(
+        order: order,
+        onDone: _fetch,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final active   = _orders.where((o) => o['status'] == 'in_transit').toList();
+    final finished = _orders.where((o) => o['status'] != 'in_transit').toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFEFF6FF),
       appBar: AppBar(
         title: Text('Đơn trong chuyến (${_orders.length})'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch)],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _orders.isEmpty
-              ? const Center(
-                  child: Text('Không có đơn trong chuyến này', style: TextStyle(color: Colors.grey)),
-                )
+              ? const Center(child: Text('Không có đơn', style: TextStyle(color: Colors.grey)))
               : RefreshIndicator(
                   onRefresh: _fetch,
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _orders.length,
-                    itemBuilder: (_, i) => _OrderItem(order: _orders[i], index: i + 1),
+                    children: [
+                      if (active.isNotEmpty) ...[
+                        _sectionHeader('🚚 Đang giao (${active.length})', const Color(0xFF7C3AED)),
+                        ...active.asMap().entries.map((e) => _OrderItem(
+                          order: e.value, index: e.key + 1,
+                          onComplete: () => _onComplete(e.value),
+                          onFail:     () => _onFail(e.value),
+                        )),
+                      ],
+                      if (finished.isNotEmpty) ...[
+                        _sectionHeader('✅ Đã xử lý (${finished.length})', const Color(0xFF059669)),
+                        ...finished.asMap().entries.map((e) => _OrderItem(
+                          order: e.value, index: active.length + e.key + 1,
+                          onComplete: null, onFail: null,
+                        )),
+                      ],
+                    ],
                   ),
                 ),
     );
   }
+
+  Widget _sectionHeader(String title, Color color) => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+    child: Text(title, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+  );
 }
 
+// ─── Order Item Card ─────────────────────────────────────────
 class _OrderItem extends StatelessWidget {
   final Map<String, dynamic> order;
   final int index;
-  const _OrderItem({required this.order, required this.index});
+  final VoidCallback? onComplete;
+  final VoidCallback? onFail;
+  const _OrderItem({required this.order, required this.index, this.onComplete, this.onFail});
 
   @override
   Widget build(BuildContext context) {
     final pickup   = order['pickup_location']   as Map<String, dynamic>?;
     final delivery = order['delivery_location'] as Map<String, dynamic>?;
     final status   = order['status'] as String? ?? 'in_transit';
-    final statusColor = AppTheme.statusColors[status] ?? const Color(0xFF7c3aed);
+    final statusColor = AppTheme.statusColors[status] ?? const Color(0xFF7C3AED);
     final statusLabel = AppTheme.statusLabels[status] ?? status;
+    final proofUrl    = order['delivery_proof_url'] as String?;
+    final isDone      = onComplete == null;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDone ? const Color(0xFFF8FAFC) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Stop number
-            Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(
-                color: const Color(0xFF0A3444),
-                borderRadius: BorderRadius.circular(8),
+            // Header
+            Row(
+              children: [
+                Container(
+                  width: 30, height: 30,
+                  decoration: BoxDecoration(color: const Color(0xFF0A3444), borderRadius: BorderRadius.circular(8)),
+                  child: Center(child: Text('$index', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800))),
+                ),
+                const SizedBox(width: 10),
+                Text(order['code']?.toString() ?? '—',
+                    style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a))),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(statusLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Route
+            _loc(Icons.fiber_manual_record, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
+            const SizedBox(height: 3),
+            _loc(Icons.location_on_rounded, const Color(0xFFD97706), delivery?['name'] ?? '—'),
+            if (order['note'] != null && order['note'].toString().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('📝 ${order['note']}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
               ),
-              child: Center(
-                child: Text('$index', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
+            // Proof photo preview
+            if (proofUrl != null) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(proofUrl, height: 100, width: double.infinity, fit: BoxFit.cover),
+              ),
+            ],
+            // Action buttons (only for active orders)
+            if (!isDone) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
+                        side: const BorderSide(color: Color(0xFFDC2626)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onPressed: onFail,
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: const Text('Không thành công', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF059669),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      onPressed: onComplete,
+                      icon: const Icon(Icons.camera_alt_rounded, size: 16),
+                      label: const Text('Hoàn thành', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _loc(IconData icon, Color color, String text) => Row(children: [
+    Icon(icon, size: 11, color: color),
+    const SizedBox(width: 6),
+    Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF475569)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+  ]);
+}
+
+// ─── Complete Order Sheet (requires photo) ───────────────────
+class _CompleteOrderSheet extends StatefulWidget {
+  final Map<String, dynamic> order;
+  final VoidCallback onDone;
+  const _CompleteOrderSheet({required this.order, required this.onDone});
+
+  @override
+  State<_CompleteOrderSheet> createState() => _CompleteOrderSheetState();
+}
+
+class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
+  File? _photo;
+  bool _uploading = false;
+  String? _error;
+
+  Future<void> _takePhoto() async {
+    final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 70, maxWidth: 1280);
+    if (picked == null) return;
+    setState(() { _photo = File(picked.path); _error = null; });
+  }
+
+  Future<void> _chooseFromGallery() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70, maxWidth: 1280);
+    if (picked == null) return;
+    setState(() { _photo = File(picked.path); _error = null; });
+  }
+
+  Future<void> _confirm() async {
+    if (_photo == null) { setState(() => _error = 'Vui lòng chụp ảnh xác nhận giao hàng'); return; }
+    setState(() { _uploading = true; _error = null; });
+    try {
+      final orderId = widget.order['id'] as String;
+      final ext      = _photo!.path.split('.').last;
+      final path     = 'proofs/$orderId-${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      // Upload photo
+      final bytes = await _photo!.readAsBytes();
+      await _supabase.storage.from('delivery-proofs').uploadBinary(path, bytes,
+        fileOptions: FileOptions(contentType: 'image/$ext', upsert: true));
+
+      final publicUrl = _supabase.storage.from('delivery-proofs').getPublicUrl(path);
+
+      // Update order
+      await _supabase.from('orders').update({
+        'status': 'delivered',
+        'delivery_proof_url': publicUrl,
+      }).eq('id', orderId);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✓ Đã hoàn thành đơn!'), backgroundColor: Color(0xFF059669)),
+        );
+        widget.onDone();
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = 'Lỗi: $e'; _uploading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(24))),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(2)))),
+            // Title
+            Row(children: [
+              Container(padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFF059669).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF059669), size: 22)),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Hoàn thành đơn', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a))),
+                Text(widget.order['code']?.toString() ?? '', style: const TextStyle(fontSize: 12, color: Color(0xFF64748b))),
+              ]),
+            ]),
+            const SizedBox(height: 16),
+
+            // Photo preview or placeholder
+            GestureDetector(
+              onTap: _takePhoto,
+              child: Container(
+                height: 180, width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _photo != null ? null : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _photo != null ? const Color(0xFF059669) : const Color(0xFFE2E8F0), width: 2),
+                ),
+                child: _photo != null
+                    ? ClipRRect(borderRadius: BorderRadius.circular(12),
+                        child: Image.file(_photo!, fit: BoxFit.cover, width: double.infinity))
+                    : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.add_a_photo_rounded, size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        Text('Nhấn để chụp ảnh xác nhận', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                      ]),
               ),
             ),
-            const SizedBox(width: 12),
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        order['code']?.toString() ?? '—',
-                        style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a)),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(statusLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  _locationRow(Icons.fiber_manual_record, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
-                  const SizedBox(height: 3),
-                  _locationRow(Icons.location_on_rounded, const Color(0xFFD97706), delivery?['name'] ?? '—'),
-                  if (order['note'] != null && order['note'].toString().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text('📝 ${order['note']}', style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
-                    ),
-                ],
+
+            if (_error != null)
+              Padding(padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12))),
+
+            const SizedBox(height: 12),
+            // Choose from gallery option
+            if (_photo == null)
+              TextButton.icon(
+                onPressed: _chooseFromGallery,
+                icon: const Icon(Icons.photo_library_rounded, size: 16),
+                label: const Text('Hoặc chọn từ thư viện ảnh', style: TextStyle(fontSize: 12)),
+              ),
+            if (_photo != null)
+              TextButton.icon(
+                onPressed: _uploading ? null : _takePhoto,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Chụp lại', style: TextStyle(fontSize: 12)),
+              ),
+
+            const SizedBox(height: 12),
+            // Confirm button
+            SizedBox(
+              width: double.infinity, height: 52,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _photo != null ? const Color(0xFF059669) : const Color(0xFFCBD5E1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _uploading ? null : _confirm,
+                icon: _uploading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.check_circle_rounded, size: 20),
+                label: Text(_uploading ? 'Đang tải ảnh...' : 'Xác nhận hoàn thành',
+                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -147,18 +377,145 @@ class _OrderItem extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _locationRow(IconData icon, Color color, String text) {
-    return Row(
-      children: [
-        Icon(icon, size: 11, color: color),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(text,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
-            maxLines: 1, overflow: TextOverflow.ellipsis),
+// ─── Fail Order Sheet (requires reason) ─────────────────────
+class _FailOrderSheet extends StatefulWidget {
+  final Map<String, dynamic> order;
+  final VoidCallback onDone;
+  const _FailOrderSheet({required this.order, required this.onDone});
+
+  @override
+  State<_FailOrderSheet> createState() => _FailOrderSheetState();
+}
+
+class _FailOrderSheetState extends State<_FailOrderSheet> {
+  final _ctrl    = TextEditingController();
+  bool _loading  = false;
+  String? _error;
+
+  static const _presets = [
+    'Khách không có mặt',
+    'Sai địa chỉ',
+    'Khách từ chối nhận',
+    'Không liên lạc được',
+    'Hàng bị hỏng',
+  ];
+
+  Future<void> _submit() async {
+    final reason = _ctrl.text.trim();
+    if (reason.isEmpty) { setState(() => _error = 'Vui lòng nhập lý do'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      await _supabase.from('orders').update({
+        'status': 'pending',
+        'assigned_to': null,
+        'trip_id': null,
+        'note': '❌ Giao không thành công: $reason\n\n${widget.order['note'] ?? ''}',
+      }).eq('id', widget.order['id'] as String);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đơn đã trả về Chờ xử lý'), backgroundColor: Color(0xFFD97706), duration: Duration(seconds: 3)),
+        );
+        widget.onDone();
+      }
+    } catch (e) {
+      if (mounted) setState(() { _error = 'Lỗi: $e'; _loading = false; });
+    }
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(24))),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(2)))),
+            // Title
+            Row(children: [
+              Container(padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: const Color(0xFFDC2626).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.cancel_rounded, color: Color(0xFFDC2626), size: 22)),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Giao không thành công', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a))),
+                Text(widget.order['code']?.toString() ?? '', style: const TextStyle(fontSize: 12, color: Color(0xFF64748b))),
+              ]),
+            ]),
+            const SizedBox(height: 4),
+            const Text('Đơn sẽ trở về trạng thái Chờ xử lý để điều phối lại.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+            const SizedBox(height: 16),
+
+            // Preset reasons
+            Wrap(spacing: 6, runSpacing: 6,
+              children: _presets.map((r) => GestureDetector(
+                onTap: () => setState(() => _ctrl.text = r),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _ctrl.text == r ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _ctrl.text == r ? const Color(0xFFDC2626) : const Color(0xFFE2E8F0)),
+                  ),
+                  child: Text(r, style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500,
+                    color: _ctrl.text == r ? const Color(0xFFDC2626) : const Color(0xFF475569))),
+                ),
+              )).toList(),
+            ),
+            const SizedBox(height: 12),
+
+            // Free text reason
+            TextField(
+              controller: _ctrl,
+              onChanged: (_) => setState(() {}),
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'Nhập lý do giao không thành công...',
+                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFDC2626), width: 2)),
+                contentPadding: const EdgeInsets.all(12),
+              ),
+            ),
+            if (_error != null)
+              Padding(padding: const EdgeInsets.only(top: 6),
+                child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12))),
+
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity, height: 52,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: _loading ? null : _submit,
+                icon: _loading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.undo_rounded, size: 20),
+                label: Text(_loading ? 'Đang xử lý...' : 'Xác nhận — trả về Chờ xử lý',
+                    style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
