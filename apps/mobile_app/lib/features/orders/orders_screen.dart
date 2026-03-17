@@ -420,7 +420,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 }
 
-// ─── Available Order Card ────────────────────────────────────
+// ─── Available Order Card (Voucher-style) ────────────────────
 class _AvailableCard extends StatelessWidget {
   final Map<String, dynamic> order;
   final VoidCallback onClaim;
@@ -434,43 +434,61 @@ class _AvailableCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFD97706).withValues(alpha: 0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    _codeChip(order['code']?.toString() ?? '—'),
-                    const SizedBox(width: 8),
-                    _statusBadge('pending'),
-                    const Spacer(),
+                Row(children: [
+                  Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.inventory_2_outlined, size: 22, color: Color(0xFFD97706)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Text(order['code']?.toString() ?? '—',
+                          style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                      const SizedBox(width: 8),
+                      _statusBadge('pending'),
+                    ]),
+                    const SizedBox(height: 2),
                     Text(_formatTime(order['created_at']),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _routeRow(Icons.fiber_manual_record, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                  ])),
+                ]),
+                const SizedBox(height: 12),
+                _routeRow(Icons.circle, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
                 Padding(padding: const EdgeInsets.only(left: 5),
-                    child: Container(width: 1.5, height: 10, color: Colors.grey[200])),
+                    child: Container(width: 1.5, height: 10, color: const Color(0xFFE2E8F0))),
                 _routeRow(Icons.location_on_rounded, const Color(0xFFD97706), delivery?['name'] ?? '—'),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: onClaim,
                     icon: const Icon(Icons.add_task_rounded, size: 17),
-                    label: const Text('Nhận đơn này'),
+                    label: Text('Nhận đơn này', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF0891B2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
                 ),
               ],
@@ -482,7 +500,7 @@ class _AvailableCard extends StatelessWidget {
   }
 }
 
-// ─── Assigned Order Card (long-press for trip) ───────────────
+// ─── Assigned Order Card (Voucher-style, long-press for trip) ─
 class _AssignedCard extends StatelessWidget {
   final Map<String, dynamic> order;
   final bool isStaged;
@@ -499,51 +517,60 @@ class _AssignedCard extends StatelessWidget {
     final pickup   = order['pickup_location']   as Map<String, dynamic>?;
     final delivery = order['delivery_location'] as Map<String, dynamic>?;
     return Opacity(
-      opacity: isStaged ? 0.45 : 1.0,
+      opacity: isStaged ? 0.5 : 1.0,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: isStaged ? const Color(0xFFECFEFF) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          color: isStaged ? const Color(0xFFF0FDFA) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isStaged ? const Color(0xFF06B6D4) : const Color(0xFFE2E8F0),
             width: isStaged ? 2 : 1,
           ),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onTap,
             onLongPress: onLongPress,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 44px icon box (cyan)
+                  Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFEFF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.assignment_turned_in_outlined, size: 22, color: Color(0xFF0891B2)),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            _codeChip(order['code']?.toString() ?? '—'),
-                            const SizedBox(width: 8),
-                            _statusBadge('assigned'),
-                            const Spacer(),
-                            Text(_formatTime(order['created_at']),
-                                style: TextStyle(fontSize: 11, color: Colors.grey[400])),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        _routeRow(Icons.fiber_manual_record, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
+                        Row(children: [
+                          Text(order['code']?.toString() ?? '—',
+                              style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                          const SizedBox(width: 8),
+                          _statusBadge('assigned'),
+                        ]),
+                        const SizedBox(height: 2),
+                        Text(_formatTime(order['created_at']),
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                        const SizedBox(height: 8),
+                        _routeRow(Icons.circle, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
                         Padding(padding: const EdgeInsets.only(left: 5),
-                            child: Container(width: 1.5, height: 10, color: Colors.grey[200])),
+                            child: Container(width: 1.5, height: 10, color: const Color(0xFFE2E8F0))),
                         _routeRow(Icons.location_on_rounded, const Color(0xFFD97706), delivery?['name'] ?? '—'),
                         if (!isStaged) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Row(children: [
                             Icon(Icons.touch_app_rounded, size: 12, color: Colors.grey[400]),
                             const SizedBox(width: 4),
@@ -554,24 +581,21 @@ class _AssignedCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  // Stage toggle button
+                  const SizedBox(width: 6),
                   GestureDetector(
                     onTap: onAdd,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 36, height: 36,
                       decoration: BoxDecoration(
-                        color: isStaged ? const Color(0xFF06B6D4) : Colors.grey.shade100,
+                        color: isStaged ? const Color(0xFF06B6D4) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: isStaged ? const Color(0xFF06B6D4) : Colors.grey.shade300,
-                        ),
+                        border: Border.all(color: isStaged ? const Color(0xFF06B6D4) : const Color(0xFFE2E8F0)),
                       ),
                       child: Center(
                         child: Icon(
                           isStaged ? Icons.check_rounded : Icons.add_rounded,
-                          color: isStaged ? Colors.white : Colors.grey.shade500,
+                          color: isStaged ? Colors.white : const Color(0xFF94A3B8),
                           size: 20,
                         ),
                       ),

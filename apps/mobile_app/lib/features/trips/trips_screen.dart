@@ -160,7 +160,7 @@ class _TripsScreenState extends State<TripsScreen>
   }
 }
 
-// ─── Trip Card ────────────────────────────────────────────────
+// ─── Trip Card (Voucher-style) ───────────────────────────────
 class _TripCard extends StatelessWidget {
   final Map<String, dynamic> trip;
   final bool completed;
@@ -175,40 +175,39 @@ class _TripCard extends StatelessWidget {
     final startedAt  = _fmt(trip['started_at']);
     final completedAt = completed ? _fmt(trip['completed_at']) : null;
 
-    return Opacity(
-      opacity: completed ? 0.65 : 1.0,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        elevation: 0,
+    final Color accent = completed ? const Color(0xFF059669) : const Color(0xFF0891B2);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                // Icon
+                // 44px icon box
                 Container(
-                  width: 48, height: 48,
+                  width: 44, height: 44,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: completed
-                          ? [const Color(0xFF059669), const Color(0xFF047857)]
-                          : [const Color(0xFF0891B2), const Color(0xFF0C4A6E)],
-                      begin: Alignment.topLeft, end: Alignment.bottomRight,
-                    ),
+                    color: accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Center(
-                    child: Icon(
-                      completed ? Icons.check_circle_rounded : Icons.local_shipping_rounded,
-                      color: Colors.white, size: 24,
-                    ),
+                  child: Icon(
+                    completed ? Icons.check_circle_rounded : Icons.local_shipping_rounded,
+                    color: accent, size: 22,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 // Info
                 Expanded(
                   child: Column(
@@ -216,17 +215,14 @@ class _TripCard extends StatelessWidget {
                     children: [
                       Text('Chuyến $startedAt',
                           style: GoogleFonts.outfit(
-                              fontSize: 15, fontWeight: FontWeight.w600,
-                              color: const Color(0xFF0f172a))),
+                              fontSize: 14, fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A))),
                       const SizedBox(height: 3),
                       Row(children: [
-                        Icon(Icons.inventory_2_outlined, size: 13,
-                            color: completed ? const Color(0xFF059669) : const Color(0xFF0891B2)),
+                        Icon(Icons.inventory_2_outlined, size: 13, color: accent),
                         const SizedBox(width: 4),
                         Text('$doneCount/$total đơn',
-                            style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500,
-                                color: completed ? const Color(0xFF059669) : const Color(0xFF0891B2))),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: accent)),
                         if (completedAt != null) ...[
                           const SizedBox(width: 8),
                           Text('⏱ $completedAt',
@@ -240,19 +236,16 @@ class _TripCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (completed ? const Color(0xFF059669) : const Color(0xFF0891B2))
-                        .withValues(alpha: 0.1),
+                    color: accent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     completed ? 'Hoàn thành' : 'Đang giao',
-                    style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700,
-                        color: completed ? const Color(0xFF059669) : const Color(0xFF0891B2)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: accent),
                   ),
                 ),
-                const SizedBox(width: 6),
-                const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFFCBD5E1)),
               ],
             ),
           ),
