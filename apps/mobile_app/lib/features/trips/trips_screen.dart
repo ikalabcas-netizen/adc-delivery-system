@@ -15,11 +15,32 @@ class _TripsScreenState extends State<TripsScreen> {
   List<Map<String, dynamic>> _active    = [];
   List<Map<String, dynamic>> _completed = [];
   bool _loading = true;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _fetch();
+    _subscribeRealtime();
+  }
+
+  void _subscribeRealtime() {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    _channel = _supabase
+        .channel('trips_list_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'trips',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'driver_id',
+            value: userId,
+          ),
+          callback: (_) => _fetch(),
+        )
+        .subscribe();
   }
 
   Future<void> _fetch() async {
@@ -111,6 +132,12 @@ class _TripsScreenState extends State<TripsScreen> {
           ],
         ),
       );
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
+  }
 }
 
 // ─── Trip Card ────────────────────────────────────────────────

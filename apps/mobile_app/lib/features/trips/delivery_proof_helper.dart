@@ -103,7 +103,10 @@ Future<Uint8List> stampDeliveryProof(
     quality: 50,
     format: CompressFormat.jpeg,
   );
-  return jpegBytes ?? pngBytes; // fallback: return PNG if compress fails
+  if (jpegBytes == null || jpegBytes.isEmpty) {
+    throw Exception('Nén ảnh JPEG thất bại — vui lòng thử lại');
+  }
+  return jpegBytes;
 }
 
 /// Draw a paragraph onto canvas at given offset.

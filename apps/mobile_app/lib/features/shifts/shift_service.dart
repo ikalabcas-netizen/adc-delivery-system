@@ -12,7 +12,8 @@ class ShiftService {
     required int kmIn,
     required String photoInUrl,
   }) async {
-    final uid = _db.auth.currentUser!.id;
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) throw Exception('Phiên đăng nhập đã hết hạn');
     final now = DateTime.now().toUtc().toIso8601String();
 
     // Validate: km_in must be > last shift's km_out if any
@@ -58,7 +59,8 @@ class ShiftService {
     required int kmOut,
     required String photoOutUrl,
   }) async {
-    final uid = _db.auth.currentUser!.id;
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) throw Exception('Phiên đăng nhập đã hết hạn');
     final now = DateTime.now().toUtc().toIso8601String();
 
     // Fetch shift to validate kmOut > kmIn
@@ -96,7 +98,8 @@ class ShiftService {
     required String shiftId,
     required bool isCheckIn,
   }) async {
-    final uid = _db.auth.currentUser!.id;
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) throw Exception('Phiên đăng nhập đã hết hạn');
     final suffix = isCheckIn ? 'in' : 'out';
     final path = '$uid/$shiftId/$suffix.jpg';
 
@@ -114,7 +117,8 @@ class ShiftService {
     String shiftId,
     String status, // 'free' | 'delivering'
   ) async {
-    final uid  = _db.auth.currentUser!.id;
+    final uid  = _db.auth.currentUser?.id;
+    if (uid == null) throw Exception('Phiên đăng nhập đã hết hạn');
     final now  = DateTime.now().toUtc().toIso8601String();
 
     final shift = await _db.from('driver_shifts')
@@ -128,7 +132,8 @@ class ShiftService {
 
   // ── Fetch active shift for current driver ──────────────────────
   static Future<Map<String, dynamic>?> getActiveShift() async {
-    final uid = _db.auth.currentUser!.id;
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) return null;
     final res = await _db.from('driver_shifts')
         .select()
         .eq('driver_id', uid)

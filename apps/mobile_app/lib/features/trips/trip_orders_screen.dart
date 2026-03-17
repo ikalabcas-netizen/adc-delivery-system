@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -35,6 +36,7 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
     try {
       final res = await _supabase.from('orders').select('''
         id, code, status, note, delivery_proof_url,
+        extra_fee, extra_fee_note, extra_fee_status,
         pickup_location:locations!orders_pickup_location_id_fkey(id, name, address),
         delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
       ''').eq('trip_id', widget.tripId).order('created_at');
@@ -65,9 +67,12 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
         const SnackBar(
           content: Text('🎉 Tất cả đơn đã hoàn thành — Chuyến đi đã kết thúc!'),
           backgroundColor: Color(0xFF059669),
-          duration: Duration(seconds: 4),
+          duration: Duration(seconds: 3),
         ),
       );
+      // Navigate back to trips list after a short delay so snackbar is visible
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) context.go('/trips');
     }
   }
 
@@ -184,12 +189,11 @@ class _OrderItem extends StatelessWidget {
             _loc(Icons.fiber_manual_record, const Color(0xFF06B6D4), pickup?['name'] ?? '—'),
             const SizedBox(height: 3),
             _loc(Icons.location_on_rounded, const Color(0xFFD97706), delivery?['name'] ?? '—'),
-            if (order['note'] != null && order['note'].toString().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text('📝 ${order['note']}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
-              ),
+            // Cost info (for completed orders)
+            if (status == 'delivered') ...[
+              const SizedBox(height: 8),
+              _costInfo(order),
+            ],
             // Proof photo preview
             if (proofUrl != null) ...[
               const SizedBox(height: 10),
@@ -243,6 +247,54 @@ class _OrderItem extends StatelessWidget {
     const SizedBox(width: 6),
     Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF475569)), maxLines: 1, overflow: TextOverflow.ellipsis)),
   ]);
+
+  Widget _costInfo(Map<String, dynamic> order) {
+    final fee = order['extra_fee'];
+    final feeNote = order['extra_fee_note']?.toString() ?? '';
+    final feeStatus = order['extra_fee_status']?.toString() ?? '';
+    if (fee == null || fee == 0) {
+      return const SizedBox.shrink();
+    }
+    final feeInt = (fee as num).toInt();
+    final formatted = feeInt.toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+    Color statusColor;
+    String statusLabel;
+    switch (feeStatus) {
+      case 'approved': statusColor = const Color(0xFF059669); statusLabel = 'Đã duyệt'; break;
+      case 'rejected': statusColor = const Color(0xFFDC2626); statusLabel = 'Từ chối'; break;
+      default:         statusColor = const Color(0xFFD97706); statusLabel = 'Chờ duyệt';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEFCE8),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.attach_money_rounded, size: 13, color: Color(0xFFD97706)),
+            const SizedBox(width: 4),
+            Text('Phụ phí: $formatted ₫',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFD97706))),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+              child: Text(statusLabel, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: statusColor)),
+            ),
+          ]),
+          if (feeNote.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text('📝 $feeNote', style: const TextStyle(fontSize: 11, color: Color(0xFF78716C))),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Complete Order Sheet (camera only + stamp + upload) ─────
@@ -475,7 +527,7 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _noteCtrl,
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87),
                     decoration: InputDecoration(
                       hintText: 'Lý do phụ phí...',
                       hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
@@ -545,12 +597,23 @@ class _FailOrderSheetState extends State<_FailOrderSheet> {
     if (reason.isEmpty) { setState(() => _error = 'Vui lòng nhập lý do'); return; }
     setState(() { _loading = true; _error = null; });
     try {
+      final orderId = widget.order['id'] as String;
+      final actorId = Supabase.instance.client.auth.currentUser?.id;
+
+      // 1. Reset order — do NOT concatenate into note
       await _supabase.from('orders').update({
         'status': 'pending',
         'assigned_to': null,
         'trip_id': null,
-        'note': '❌ Giao không thành công: $reason\n\n${widget.order['note'] ?? ''}',
-      }).eq('id', widget.order['id'] as String);
+      }).eq('id', orderId);
+
+      // 2. Record failure reason in order_events only
+      await _supabase.from('order_events').insert({
+        'order_id': orderId,
+        'actor_id': actorId,
+        'event_type': 'failed',
+        'metadata': {'reason': reason},
+      });
 
       if (mounted) {
         Navigator.of(context).pop();

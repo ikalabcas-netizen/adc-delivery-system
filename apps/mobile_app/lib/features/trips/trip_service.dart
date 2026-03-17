@@ -44,9 +44,12 @@ class TripService {
         .select('status')
         .eq('trip_id', tripId);
 
-    final allDone = (rows as List).every(
-      (o) => (o['status'] as String) != 'in_transit',
+    // Only mark trip complete when every order reached a terminal status
+    // (delivered/returned/cancelled) — NOT when some orders went back to pending
+    final allDone = (rows as List).every((o) =>
+      ['delivered', 'returned', 'cancelled'].contains(o['status'] as String),
     );
+
 
     if (allDone) {
       await _supabase.from('trips').update({
