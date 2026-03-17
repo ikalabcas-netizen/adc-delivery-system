@@ -37,6 +37,10 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   // ── Lazy load flags ─────────────────────────────────────
   bool _historyLoaded = false;
+  bool _historyLoadingMore = false;
+  bool _historyHasMore = true;
+  static const _historyPageSize = 20;
+  final ScrollController _historyScroll = ScrollController();
 
   @override
   void initState() {
@@ -45,6 +49,7 @@ class _OrdersScreenState extends State<OrdersScreen>
     _tabCtrl.addListener(_onTabChanged);
     _fetchOrders();
     _subscribeRealtime();
+    _historyScroll.addListener(_onHistoryScroll);
   }
 
   @override
@@ -52,12 +57,19 @@ class _OrdersScreenState extends State<OrdersScreen>
     _tabCtrl.dispose();
     _channelNew?.unsubscribe();
     _channelMine?.unsubscribe();
+    _historyScroll.dispose();
     super.dispose();
   }
 
   void _onTabChanged() {
     if (_tabCtrl.index == 2 && !_historyLoaded) {
       _fetchHistory();
+    }
+  }
+
+  void _onHistoryScroll() {
+    if (_historyScroll.position.pixels >= _historyScroll.position.maxScrollExtent - 200) {
+      _loadMoreHistory();
     }
   }
 
@@ -175,14 +187,45 @@ class _OrdersScreenState extends State<OrdersScreen>
           .eq('assigned_to', userId)
           .inFilter('status', ['delivered', 'failed', 'cancelled'])
           .order('delivered_at', ascending: false)
-          .limit(100);
+          .limit(_historyPageSize);
       if (mounted) {
         setState(() {
           _history = List<Map<String, dynamic>>.from(historyRes);
           _historyLoaded = true;
+          _historyHasMore = historyRes.length >= _historyPageSize;
         });
       }
     } catch (_) {}
+  }
+
+  /// Pagination: next page of history
+  Future<void> _loadMoreHistory() async {
+    if (_historyLoadingMore || !_historyHasMore) return;
+    _historyLoadingMore = true;
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) { _historyLoadingMore = false; return; }
+    try {
+      final selectQuery = '''
+        *,
+        pickup_location:locations!orders_pickup_location_id_fkey(id, name, address, lat, lng),
+        delivery_location:locations!orders_delivery_location_id_fkey(id, name, address, lat, lng),
+        assigned_driver:profiles!orders_assigned_to_fkey(id, full_name)
+      ''';
+      final moreRes = await _supabase
+          .from('orders')
+          .select(selectQuery)
+          .eq('assigned_to', userId)
+          .inFilter('status', ['delivered', 'failed', 'cancelled'])
+          .order('delivered_at', ascending: false)
+          .range(_history.length, _history.length + _historyPageSize - 1);
+      if (mounted) {
+        setState(() {
+          _history.addAll(List<Map<String, dynamic>>.from(moreRes));
+          _historyHasMore = moreRes.length >= _historyPageSize;
+        });
+      }
+    } catch (_) {}
+    _historyLoadingMore = false;
   }
 
   bool _claiming = false;
@@ -413,15 +456,25 @@ class _OrdersScreenState extends State<OrdersScreen>
 
   // ─── Tab 3: Lịch sử (delivered / failed / cancelled) ────
   Widget _buildHistoryList() {
+    if (!_historyLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (_history.isEmpty) {
       return _emptyState(Icons.history_rounded, 'Chưa có lịch sử giao hàng');
     }
     return RefreshIndicator(
-      onRefresh: _fetchOrders,
+      onRefresh: _fetchHistory,
       child: ListView.builder(
+        controller: _historyScroll,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _history.length,
+        itemCount: _history.length + (_historyHasMore ? 1 : 0),
         itemBuilder: (_, i) {
+          if (i >= _history.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
           final o = _history[i];
           final status = o['status'] as String? ?? '';
           final Color statusColor;

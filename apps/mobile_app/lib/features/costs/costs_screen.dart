@@ -100,6 +100,10 @@ class _ExtraFeesTabState extends State<_ExtraFeesTab>
   late TabController _filterTab;
   List<Map<String, dynamic>> _orders = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  static const _pageSize = 30;
+  final ScrollController _scrollCtrl = ScrollController();
 
   static const _statuses = ['pending', 'approved', 'rejected'];
 
@@ -108,12 +112,20 @@ class _ExtraFeesTabState extends State<_ExtraFeesTab>
     super.initState();
     _filterTab = TabController(length: 3, vsync: this);
     _fetch();
+    _scrollCtrl.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _filterTab.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
   }
 
   Future<void> _fetch() async {
@@ -134,17 +146,51 @@ class _ExtraFeesTabState extends State<_ExtraFeesTab>
           ''')
           .eq('assigned_to', uid)
           .gt('extra_fee', 0)
-          .order('delivered_at', ascending: false);
+          .order('delivered_at', ascending: false)
+          .limit(_pageSize);
 
       if (mounted) {
         setState(() {
           _orders = List<Map<String, dynamic>>.from(res);
           _loading = false;
+          _hasMore = res.length >= _pageSize;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    _loadingMore = true;
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) { _loadingMore = false; return; }
+    try {
+      final res = await _supabase
+          .from('orders')
+          .select('''
+            id, code, extra_fee, extra_fee_note, extra_fee_status,
+            extra_fee_rejected_reason, delivered_at, delivery_proof_url,
+            delivery_location:locations!orders_delivery_location_id_fkey(id, name),
+            voucher_items:payment_voucher_items(
+              id,
+              voucher:payment_vouchers(id, voucher_code, status)
+            )
+          ''')
+          .eq('assigned_to', uid)
+          .gt('extra_fee', 0)
+          .order('delivered_at', ascending: false)
+          .range(_orders.length, _orders.length + _pageSize - 1);
+
+      if (mounted) {
+        setState(() {
+          _orders.addAll(List<Map<String, dynamic>>.from(res));
+          _hasMore = res.length >= _pageSize;
+        });
+      }
+    } catch (_) {}
+    _loadingMore = false;
   }
 
   // 5 payment states: pending | approved | approved_vouchered | approved_paid | rejected
@@ -225,13 +271,22 @@ class _ExtraFeesTabState extends State<_ExtraFeesTab>
               return RefreshIndicator(
                 onRefresh: _fetch,
                 child: ListView.builder(
+                  controller: _scrollCtrl,
                   padding: const EdgeInsets.all(14),
-                  itemCount: items.length,
-                  itemBuilder: (_, i) => _FeeCard(
-                    order: items[i],
-                    status: s,
-                    onRefresh: _fetch,
-                  ),
+                  itemCount: items.length + (_hasMore ? 1 : 0),
+                  itemBuilder: (_, i) {
+                    if (i >= items.length) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      );
+                    }
+                    return _FeeCard(
+                      order: items[i],
+                      status: s,
+                      onRefresh: _fetch,
+                    );
+                  },
                 ),
               );
             }).toList(),

@@ -19,12 +19,21 @@ class _TripsScreenState extends State<TripsScreen>
   RealtimeChannel? _channel;
   late TabController _tabCtrl;
 
+  // ── Lazy load / pagination ──────────────────────────────
+  bool _completedLoaded = false;
+  bool _completedLoadingMore = false;
+  bool _completedHasMore = true;
+  static const _pageSize = 20;
+  final ScrollController _completedScroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
-    _fetch();
+    _tabCtrl.addListener(_onTabChanged);
+    _fetchActive();
     _subscribeRealtime();
+    _completedScroll.addListener(_onCompletedScroll);
   }
 
   void _subscribeRealtime() {
@@ -41,12 +50,28 @@ class _TripsScreenState extends State<TripsScreen>
             column: 'driver_id',
             value: userId,
           ),
-          callback: (_) => _fetch(),
+          callback: (_) {
+            _fetchActive();
+            if (_completedLoaded) _fetchCompletedRefresh();
+          },
         )
         .subscribe();
   }
 
-  Future<void> _fetch() async {
+  void _onTabChanged() {
+    if (_tabCtrl.index == 1 && !_completedLoaded) {
+      _fetchCompleted();
+    }
+  }
+
+  void _onCompletedScroll() {
+    if (_completedScroll.position.pixels >= _completedScroll.position.maxScrollExtent - 200) {
+      _loadMoreCompleted();
+    }
+  }
+
+  /// Fetch only active trips (always needed on open)
+  Future<void> _fetchActive() async {
     setState(() => _loading = true);
     try {
       final userId = _supabase.auth.currentUser?.id;
@@ -54,15 +79,14 @@ class _TripsScreenState extends State<TripsScreen>
           .from('trips')
           .select('*, orders(id, status)')
           .eq('driver_id', userId!)
+          .eq('status', 'active')
           .order('created_at', ascending: false)
-          .limit(100);
+          .limit(50);
 
-      final all = List<Map<String, dynamic>>.from(res);
       if (mounted) {
         setState(() {
-          _active    = all.where((t) => t['status'] == 'active').toList();
-          _completed = all.where((t) => t['status'] == 'completed').toList();
-          _loading   = false;
+          _active = List<Map<String, dynamic>>.from(res);
+          _loading = false;
         });
       }
     } catch (e) {
@@ -70,19 +94,94 @@ class _TripsScreenState extends State<TripsScreen>
     }
   }
 
-  Widget _tripsList(List<Map<String, dynamic>> trips, bool completed) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (trips.isEmpty) return _emptyTab(completed);
+  /// Lazy: first page of completed trips
+  Future<void> _fetchCompleted() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      final res = await _supabase
+          .from('trips')
+          .select('*, orders(id, status)')
+          .eq('driver_id', userId!)
+          .eq('status', 'completed')
+          .order('created_at', ascending: false)
+          .limit(_pageSize);
+
+      if (mounted) {
+        setState(() {
+          _completed = List<Map<String, dynamic>>.from(res);
+          _completedLoaded = true;
+          _completedHasMore = res.length >= _pageSize;
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// Refresh completed (for realtime)
+  Future<void> _fetchCompletedRefresh() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      final res = await _supabase
+          .from('trips')
+          .select('*, orders(id, status)')
+          .eq('driver_id', userId!)
+          .eq('status', 'completed')
+          .order('created_at', ascending: false)
+          .limit(_completed.length.clamp(_pageSize, 200));
+
+      if (mounted) setState(() => _completed = List<Map<String, dynamic>>.from(res));
+    } catch (_) {}
+  }
+
+  /// Pagination: next page
+  Future<void> _loadMoreCompleted() async {
+    if (_completedLoadingMore || !_completedHasMore) return;
+    _completedLoadingMore = true;
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      final res = await _supabase
+          .from('trips')
+          .select('*, orders(id, status)')
+          .eq('driver_id', userId!)
+          .eq('status', 'completed')
+          .order('created_at', ascending: false)
+          .range(_completed.length, _completed.length + _pageSize - 1);
+
+      if (mounted) {
+        setState(() {
+          _completed.addAll(List<Map<String, dynamic>>.from(res));
+          _completedHasMore = res.length >= _pageSize;
+        });
+      }
+    } catch (_) {}
+    _completedLoadingMore = false;
+  }
+
+  Widget _tripsList(List<Map<String, dynamic>> trips, bool completed, {
+    ScrollController? scroll, bool hasMore = false,
+  }) {
+    if (_loading && !completed) return const Center(child: CircularProgressIndicator());
+    if (!completed && trips.isEmpty) return _emptyTab(false);
+    if (completed && !_completedLoaded) return const Center(child: CircularProgressIndicator());
+    if (completed && trips.isEmpty) return _emptyTab(true);
     return RefreshIndicator(
-      onRefresh: _fetch,
+      onRefresh: completed ? _fetchCompleted : _fetchActive,
       child: ListView.builder(
+        controller: scroll,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: trips.length,
-        itemBuilder: (_, i) => _TripCard(
-          trip: trips[i],
-          completed: completed,
-          onTap: () => context.go('/trips/${trips[i]['id']}'),
-        ),
+        itemCount: trips.length + (hasMore ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i >= trips.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
+          return _TripCard(
+            trip: trips[i],
+            completed: completed,
+            onTap: () => context.go('/trips/${trips[i]['id']}'),
+          );
+        },
       ),
     );
   }
@@ -111,7 +210,10 @@ class _TripsScreenState extends State<TripsScreen>
       appBar: AppBar(
         title: const Text('Chuyến đi'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch),
+          IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: () {
+            _fetchActive();
+            if (_completedLoaded) _fetchCompletedRefresh();
+          }),
           const HamburgerMenu(),
           const SizedBox(width: 4),
         ],
@@ -146,7 +248,7 @@ class _TripsScreenState extends State<TripsScreen>
         controller: _tabCtrl,
         children: [
           _tripsList(_active, false),
-          _tripsList(_completed, true),
+          _tripsList(_completed, true, scroll: _completedScroll, hasMore: _completedHasMore),
         ],
       ),
     );
@@ -156,6 +258,7 @@ class _TripsScreenState extends State<TripsScreen>
   void dispose() {
     _tabCtrl.dispose();
     _channel?.unsubscribe();
+    _completedScroll.dispose();
     super.dispose();
   }
 }
