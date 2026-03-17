@@ -1,13 +1,9 @@
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 
-/// Tạo stamp trên ảnh bằng dart:ui Canvas (không cần package ngoài).
-/// Vẽ một dải tối ở đáy ảnh với:
-///   • Mã đơn hàng (to, trắng)
-///   • Thời gian chụp (vàng)
-///   • Địa điểm giao hàng (trắng xám)
-///   • Watermark "ADC Delivery" góc trên phải
+/// Tạo stamp trên ảnh và encode JPEG quality 50 (nhẹ, đủ để double-check).
 Future<Uint8List> stampDeliveryProof(
   Uint8List sourceBytes, {
   required String orderCode,
@@ -93,13 +89,21 @@ Future<Uint8List> stampDeliveryProof(
     maxWidth: W - (pad * 2),
   );
 
-  // 3. Finalize picture → ui.Image
+  // 3. Finalize picture → ui.Image → PNG bytes (needed as input for compressor)
   final picture    = recorder.endRecording();
   final stampedImg = await picture.toImage(srcImage.width, srcImage.height);
+  final pngData    = await stampedImg.toByteData(format: ui.ImageByteFormat.png);
+  final pngBytes   = pngData!.buffer.asUint8List();
 
-  // 4. Encode as PNG (~200–400 KB for 1920px source)
-  final pngData = await stampedImg.toByteData(format: ui.ImageByteFormat.png);
-  return pngData!.buffer.asUint8List();
+  // 4. Re-compress PNG → JPEG quality 50 at max 800px (compressWithList needs encoded input)
+  final jpegBytes = await FlutterImageCompress.compressWithList(
+    pngBytes,
+    minWidth: 800,
+    minHeight: 600,
+    quality: 50,
+    format: CompressFormat.jpeg,
+  );
+  return jpegBytes ?? pngBytes; // fallback: return PNG if compress fails
 }
 
 /// Draw a paragraph onto canvas at given offset.

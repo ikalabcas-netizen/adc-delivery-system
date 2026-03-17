@@ -83,26 +83,40 @@ class _OrdersScreenState extends State<OrdersScreen>
     }
   }
 
+  bool _claiming = false;
+
   Future<void> _claimOrder(String orderId) async {
+    if (_claiming) return;
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
+    setState(() => _claiming = true);
     try {
       await _supabase.from('orders').update({
         'assigned_to': userId,
         'status': 'assigned',
       }).eq('id', orderId);
+
+      await _fetchOrders();
+
       if (mounted) {
+        // Switch to Tab 2 (Đã nhận) so driver sees the order moved there
+        _tabCtrl.animateTo(1);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✓ Đã nhận đơn')),
+          const SnackBar(
+            content: Text('✓ Đã nhận đơn — xem trong tab "Đã nhận"'),
+            backgroundColor: Color(0xFF059669),
+            duration: Duration(seconds: 3),
+          ),
         );
       }
-      _fetchOrders();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e')),
+          SnackBar(content: Text('Lỗi nhận đơn: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _claiming = false);
     }
   }
 

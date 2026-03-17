@@ -52,8 +52,8 @@ class _OdometerCaptureScreenState extends State<OdometerCaptureScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 75,
-      maxWidth: 1280,
+      imageQuality: 55,
+      maxWidth: 800,
     );
     if (picked == null) return;
     setState(() => _photo = File(picked.path));

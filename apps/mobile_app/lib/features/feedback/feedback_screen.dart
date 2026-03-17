@@ -38,8 +38,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   Future<void> _pickPhoto() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.camera,
-      imageQuality: 70,
-      maxWidth: 1024,
+      imageQuality: 55,
+      maxWidth: 640,
     );
     if (picked != null) setState(() => _photo = File(picked.path));
   }

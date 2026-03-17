@@ -277,8 +277,8 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
     setState(() { _error = null; });
     final picked = await _picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 78,
-      maxWidth: 1920,
+      imageQuality: 55,
+      maxWidth: 800,
       preferredCameraDevice: CameraDevice.rear,
     );
     if (picked == null) return;
@@ -307,12 +307,12 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
     setState(() { _uploading = true; _error = null; _status = 'Đang nén và tải ảnh...' ; });
     try {
       final orderId = widget.order['id'] as String;
-      final path    = 'proofs/$orderId-${DateTime.now().millisecondsSinceEpoch}.png';
+      final path    = 'proofs/$orderId-${DateTime.now().millisecondsSinceEpoch}.jpg';
 
       // Upload stamped PNG (already compressed via imageQuality in picker)
       await _supabase.storage.from('delivery-proofs').uploadBinary(
         path, _stampedBytes!,
-        fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
+        fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
       );
 
       final publicUrl = _supabase.storage.from('delivery-proofs').getPublicUrl(path);
