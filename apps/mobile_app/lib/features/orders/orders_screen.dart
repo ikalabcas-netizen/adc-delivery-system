@@ -146,13 +146,22 @@ class _OrdersScreenState extends State<OrdersScreen>
             .from('orders')
             .select(selectQuery)
             .eq('assigned_to', userId)
-            .eq('status', 'assigned')
+            .inFilter('status', ['assigned', 'staging'])
             .order('created_at', ascending: false)
             .limit(50);
       }
 
       final avail = List<Map<String, dynamic>>.from(availRes);
       final assigned = List<Map<String, dynamic>>.from(assignedRes);
+
+      // Sync _staged from DB: orders with status 'staging' should be in _staged
+      final stagedFromDb = assigned
+          .where((o) => o['status'] == 'staging')
+          .map((o) => o['id'] as String)
+          .toSet();
+      _staged.addAll(stagedFromDb);
+      // Remove from _staged if order no longer in assigned list
+      _staged.retainWhere((id) => assigned.any((o) => o['id'] == id));
 
       // Cache results
       _cache.set('orders_available', avail, ttl: const Duration(minutes: 1));
