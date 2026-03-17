@@ -1,14 +1,14 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Receipt, CheckCircle, DollarSign, Clock } from 'lucide-react'
+import { Receipt, CheckCircle, DollarSign, Clock, X, ZoomIn } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { PaymentVoucher } from '@adc/shared-types'
 
-// ── Formatting ────────────────────────────────────────
+// ── Formatting ─────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString('vi-VN') + ' ₫'
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
-// ── Hooks ─────────────────────────────────────────────
+// ── Hooks ──────────────────────────────────────────────
 function usePendingFees() {
   return useQuery({
     queryKey: ['accounting', 'pending-fees'],
@@ -17,9 +17,10 @@ function usePendingFees() {
         .from('orders')
         .select(`
           id, code, status, extra_fee, extra_fee_note, extra_fee_status, extra_fee_rejected_reason,
+          delivery_proof_url, proof_photo_url,
           created_at, delivered_at,
-          assigned_driver:profiles!orders_assigned_to_fkey(id, full_name, avatar_url),
-          delivery_location:locations!orders_delivery_location_id_fkey(id, name)
+          assigned_driver:profiles!orders_assigned_to_fkey(id, full_name, avatar_url, phone),
+          delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
         `)
         .gt('extra_fee', 0)
         .order('delivered_at', { ascending: false })
@@ -98,39 +99,35 @@ function useCreateVoucher() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ driverId, orderIds }: { driverId: string; orderIds: string[] }) => {
-      // Fetch amounts
+      // Only use approved orders
       const { data: orders } = await supabase
         .from('orders')
-        .select('id, extra_fee')
+        .select('id, extra_fee, extra_fee_status')
         .in('id', orderIds)
 
-      const total = (orders ?? []).reduce((s, o) => s + (o.extra_fee ?? 0), 0)
+      const approvedOrders = (orders ?? []).filter(o => o.extra_fee_status === 'approved')
+      if (approvedOrders.length === 0) throw new Error('Không có đơn nào đã được duyệt')
 
-      // Generate voucher code
+      const total = approvedOrders.reduce((s, o) => s + (o.extra_fee ?? 0), 0)
       const today = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')
       const dateStr = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`
       const rand = Math.floor(Math.random() * 900 + 100)
       const voucherCode = `PAY-${dateStr}-${rand}`
 
-      // Create voucher
       const { data: voucher, error: vErr } = await supabase
         .from('payment_vouchers')
         .insert({ driver_id: driverId, voucher_code: voucherCode, total_amount: total })
         .select().single()
       if (vErr) throw vErr
 
-      // Create voucher items
-      const items = (orders ?? []).map(o => ({
+      const items = approvedOrders.map(o => ({
         voucher_id: voucher.id, order_id: o.id, amount: o.extra_fee ?? 0,
       }))
       if (items.length > 0) {
         const { error: iErr } = await supabase.from('payment_voucher_items').insert(items)
         if (iErr) throw iErr
       }
-
-      // Mark orders as part of voucher
-      await supabase.from('orders').update({ extra_fee_status: 'approved' }).in('id', orderIds)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['accounting'] }),
   })
@@ -148,7 +145,7 @@ function useMarkPaid() {
   })
 }
 
-// ── Components ────────────────────────────────────────
+// ── Components ─────────────────────────────────────────
 
 function SummaryCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
@@ -182,23 +179,220 @@ function FeeStatusBadge({ status }: { status?: string | null }) {
   return <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.color }}>{c.label}</span>
 }
 
-// ── Main Page ─────────────────────────────────────────
+// ── Fee Detail Modal ───────────────────────────────────
+function FeeDetailModal({
+  order,
+  onClose,
+  onApprove,
+  onReject,
+  isActing,
+}: {
+  order: any
+  onClose: () => void
+  onApprove: () => void
+  onReject: (reason: string) => void
+  isActing: boolean
+}) {
+  const [rejectReason, setRejectReason] = useState('')
+  const [showReject, setShowReject] = useState(false)
+  const [imgZoomed, setImgZoomed] = useState(false)
+
+  const proofUrl = order.delivery_proof_url || order.proof_photo_url
+  const status = order.extra_fee_status as string
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 9998, backdropFilter: 'blur(2px)' }}
+      />
+      {/* Panel */}
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+        background: '#fff', borderRadius: 20, width: 520, maxWidth: '95vw', maxHeight: '90vh',
+        overflow: 'auto', zIndex: 9999, boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
+        fontFamily: 'Outfit, sans-serif',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>Chi tiết phụ phí</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{order.code}</div>
+          </div>
+          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex' }}>
+            <X size={16} color="#64748b" />
+          </button>
+        </div>
+
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Driver info */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#f8fafc', borderRadius: 12 }}>
+            {order.assigned_driver?.avatar_url
+              ? <img src={order.assigned_driver.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+              : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#cffafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#0891b2' }}>{order.assigned_driver?.full_name?.[0] ?? '?'}</div>
+            }
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{order.assigned_driver?.full_name ?? '—'}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>{order.assigned_driver?.phone ?? ''}</div>
+            </div>
+          </div>
+
+          {/* Order info */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 3 }}>Địa điểm giao</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{order.delivery_location?.name ?? '—'}</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>{order.delivery_location?.address ?? ''}</div>
+            </div>
+            <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 3 }}>Ngày giao</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{order.delivered_at ? fmtDate(order.delivered_at) : '—'}</div>
+            </div>
+          </div>
+
+          {/* Fee details */}
+          <div style={{ padding: '14px 16px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 11, color: '#92400e', marginBottom: 4, fontWeight: 600 }}>Phụ phí phát sinh</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>{fmt(order.extra_fee ?? 0)}</div>
+              </div>
+              <FeeStatusBadge status={status} />
+            </div>
+            {order.extra_fee_note && (
+              <div style={{ marginTop: 10, fontSize: 13, color: '#78350f', fontStyle: 'italic' }}>
+                "{order.extra_fee_note}"
+              </div>
+            )}
+            {status === 'rejected' && order.extra_fee_rejected_reason && (
+              <div style={{ marginTop: 8, padding: '8px 12px', background: '#fee2e2', borderRadius: 8, fontSize: 12, color: '#991b1b' }}>
+                <strong>Lý do từ chối:</strong> {order.extra_fee_rejected_reason}
+              </div>
+            )}
+          </div>
+
+          {/* Delivery proof photo */}
+          {proofUrl ? (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 8 }}>📷 Ảnh chứng minh / Bill</div>
+              <div
+                style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'zoom-in' }}
+                onClick={() => setImgZoomed(true)}
+              >
+                <img
+                  src={proofUrl}
+                  alt="Ảnh giao hàng"
+                  style={{ width: '100%', maxHeight: 280, objectFit: 'cover', display: 'block' }}
+                />
+                <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <ZoomIn size={12} color="#fff" />
+                  <span style={{ fontSize: 11, color: '#fff' }}>Xem rõ</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: '16px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+              📷 Chưa có ảnh chứng minh
+            </div>
+          )}
+
+          {/* Action buttons — only for pending */}
+          {status === 'pending' && !showReject && (
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={onApprove}
+                disabled={isActing}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, background: '#059669', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', opacity: isActing ? 0.7 : 1 }}
+              >
+                {isActing ? '...' : '✓ Duyệt phụ phí'}
+              </button>
+              <button
+                onClick={() => setShowReject(true)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 10, background: '#fee2e2', color: '#991b1b', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}
+              >
+                ✕ Từ chối
+              </button>
+            </div>
+          )}
+
+          {/* Reject form */}
+          {showReject && (
+            <div style={{ background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', marginBottom: 8 }}>Lý do từ chối</div>
+              <textarea
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="Nhập lý do từ chối phụ phí..."
+                rows={3}
+                style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #fecaca', fontSize: 13, fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
+              />
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button
+                  onClick={() => setShowReject(false)}
+                  style={{ flex: 1, padding: 10, border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc', cursor: 'pointer', fontFamily: 'Outfit, sans-serif', fontSize: 13 }}
+                >
+                  Huỷ
+                </button>
+                <button
+                  onClick={() => { onReject(rejectReason); setShowReject(false) }}
+                  disabled={!rejectReason.trim() || isActing}
+                  style={{ flex: 1, padding: 10, border: 'none', borderRadius: 8, background: '#dc2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', fontSize: 13, opacity: !rejectReason.trim() || isActing ? 0.6 : 1 }}
+                >
+                  Xác nhận từ chối
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Image zoom overlay */}
+      {imgZoomed && proofUrl && (
+        <div
+          onClick={() => setImgZoomed(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+        >
+          <img
+            src={proofUrl}
+            alt="Ảnh giao hàng"
+            style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 12 }}
+          />
+          <button
+            onClick={() => setImgZoomed(false)}
+            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex' }}
+          >
+            <X size={20} color="#fff" />
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ── Main Page ──────────────────────────────────────────
 export function AccountingPage() {
   const [tab, setTab] = useState<'fees' | 'vouchers'>('fees')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [rejectId, setRejectId] = useState<string | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
   const [expandedVoucher, setExpandedVoucher] = useState<string | null>(null)
-  const [feeFilter, setFeeFilter] = useState<'all'|'pending'|'approved'|'rejected'>('all')
+  const [feeFilter, setFeeFilter] = useState<'all'|'pending'|'approved'|'rejected'>('pending')
+  const [detailOrder, setDetailOrder] = useState<any | null>(null)
 
-  const { data: fees = [],     isLoading: feesLoading }  = usePendingFees()
+  const { data: fees = [],     isLoading: feesLoading }    = usePendingFees()
   const { data: vouchers = [], isLoading: vouchersLoading } = useVouchers()
-  const { data: stats }                                   = useAccountingStats()
-  const approve  = useApproveFee()
+  const { data: stats }                                     = useAccountingStats()
+  const approve      = useApproveFee()
   const createVoucher = useCreateVoucher()
-  const markPaid = useMarkPaid()
+  const markPaid     = useMarkPaid()
 
   const filteredFees = feeFilter === 'all' ? fees : fees.filter(f => f.extra_fee_status === feeFilter)
+
+  // Count by status
+  const countByStatus = useMemo(() => ({
+    pending:  fees.filter(f => f.extra_fee_status === 'pending').length,
+    approved: fees.filter(f => f.extra_fee_status === 'approved').length,
+    rejected: fees.filter(f => f.extra_fee_status === 'rejected').length,
+  }), [fees])
 
   // Group selected orders by driver for voucher creation
   const selectedOrders = fees.filter(f => selected.has(f.id))
@@ -212,6 +406,8 @@ export function AccountingPage() {
     }
     return m
   }, [selectedOrders])
+
+  const hasPendingInSelection = selectedOrders.some(o => o.extra_fee_status === 'pending')
 
   const handleCreateVouchers = async () => {
     for (const [driverId, orderIds] of selectedGroups) {
@@ -267,24 +463,37 @@ export function AccountingPage() {
       {/* ── TAB 1: Fees ── */}
       {tab === 'fees' && (
         <div>
-          {/* Filter + bulk actions */}
+          {/* Filter chips */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-            {(['all','pending','approved','rejected'] as const).map(f => (
-              <button key={f} onClick={() => setFeeFilter(f)} style={{
-                padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                border: feeFilter === f ? 'none' : '1px solid #e2e8f0',
-                background: feeFilter === f ? '#059669' : '#fff',
-                color: feeFilter === f ? '#fff' : '#64748b',
-                fontFamily: 'Outfit, sans-serif',
-              }}>{{ all: 'Tất cả', pending: 'Chờ', approved: 'Duyệt', rejected: 'Từ chối' }[f]}</button>
-            ))}
+            {(['all','pending','approved','rejected'] as const).map(f => {
+              const count = f === 'all' ? fees.length : countByStatus[f] ?? 0
+              return (
+                <button key={f} onClick={() => setFeeFilter(f)} style={{
+                  padding: '5px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                  border: feeFilter === f ? 'none' : '1px solid #e2e8f0',
+                  background: feeFilter === f ? '#059669' : '#fff',
+                  color: feeFilter === f ? '#fff' : '#64748b',
+                  fontFamily: 'Outfit, sans-serif',
+                }}>
+                  {{ all: 'Tất cả', pending: '⏳ Chờ', approved: '✅ Duyệt', rejected: '❌ Từ chối' }[f]} ({count})
+                </button>
+              )
+            })}
+
+            {/* Bulk create voucher */}
             {selected.size > 0 && (
-              <button
-                onClick={handleCreateVouchers}
-                disabled={createVoucher.isPending}
-                style={{ marginLeft: 'auto', padding: '6px 16px', borderRadius: 10, background: '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-                {createVoucher.isPending ? 'Đang tạo...' : `Gộp ${selected.size} đơn → Chứng từ`}
-              </button>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {hasPendingInSelection && (
+                  <span style={{ fontSize: 11, color: '#d97706' }}>⚠️ Có đơn chưa duyệt trong chọn</span>
+                )}
+                <button
+                  onClick={handleCreateVouchers}
+                  disabled={createVoucher.isPending || hasPendingInSelection}
+                  style={{ padding: '6px 16px', borderRadius: 10, background: hasPendingInSelection ? '#94a3b8' : '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: hasPendingInSelection ? 'not-allowed' : 'pointer', fontFamily: 'Outfit, sans-serif' }}
+                >
+                  {createVoucher.isPending ? 'Đang tạo...' : `Gộp ${selected.size} đơn → Chứng từ`}
+                </button>
+              </div>
             )}
           </div>
 
@@ -310,9 +519,15 @@ export function AccountingPage() {
                 </thead>
                 <tbody>
                   {filteredFees.map((o: any) => (
-                    <tr key={o.id} style={{ borderBottom: '1px solid #f8fafc' }}>
-                      <td style={{ padding: '10px 14px' }}>
-                        {o.extra_fee_status === 'pending' && (
+                    <tr
+                      key={o.id}
+                      style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', transition: 'background 0.12s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      onClick={() => setDetailOrder(o)}
+                    >
+                      <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
+                        {o.extra_fee_status === 'approved' && (
                           <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)}
                             style={{ width: 14, height: 14, cursor: 'pointer' }} />
                         )}
@@ -333,26 +548,23 @@ export function AccountingPage() {
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: (o.extra_fee ?? 0) > 100000 ? '#dc2626' : '#0f172a' }}>
                         {fmt(o.extra_fee ?? 0)}
+                        {(o.delivery_proof_url || o.proof_photo_url) && (
+                          <div style={{ fontSize: 10, color: '#0891b2', marginTop: 2 }}>📷 có ảnh</div>
+                        )}
                       </td>
                       <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                         <FeeStatusBadge status={o.extra_fee_status} />
                         {o.extra_fee_rejected_reason && (
-                          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{o.extra_fee_rejected_reason}</div>
+                          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.extra_fee_rejected_reason}</div>
                         )}
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        {o.extra_fee_status === 'pending' && (
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                            <button onClick={() => approve.mutate({ orderId: o.id, approve: true })} style={{
-                              padding: '4px 10px', borderRadius: 8, background: '#dcfce7', color: '#166534', border: 'none',
-                              fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-                            }}>Duyệt</button>
-                            <button onClick={() => setRejectId(o.id)} style={{
-                              padding: '4px 10px', borderRadius: 8, background: '#fee2e2', color: '#991b1b', border: 'none',
-                              fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-                            }}>Từ chối</button>
-                          </div>
-                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); setDetailOrder(o) }}
+                          style={{ padding: '4px 12px', borderRadius: 8, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}
+                        >
+                          Xem chi tiết
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -414,31 +626,21 @@ export function AccountingPage() {
         </div>
       )}
 
-      {/* Reject modal */}
-      {rejectId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}
-          onClick={() => setRejectId(null)}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, width: 380, maxWidth: '90vw' }}
-            onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 16, color: '#0f172a' }}>Từ chối phụ phí</h3>
-            <textarea
-              value={rejectReason}
-              onChange={e => setRejectReason(e.target.value)}
-              placeholder="Nhập lý do từ chối..."
-              rows={3}
-              style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 13, fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box' }}
-            />
-            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button onClick={() => setRejectId(null)} style={{ flex: 1, padding: 10, border: '1px solid #e2e8f0', borderRadius: 10, background: '#f8fafc', cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>Huỷ</button>
-              <button onClick={() => {
-                approve.mutate({ orderId: rejectId, approve: false, reason: rejectReason })
-                setRejectId(null); setRejectReason('')
-              }} style={{ flex: 1, padding: 10, border: 'none', borderRadius: 10, background: '#dc2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}>
-                Xác nhận từ chối
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Detail Modal */}
+      {detailOrder && (
+        <FeeDetailModal
+          order={detailOrder}
+          onClose={() => setDetailOrder(null)}
+          onApprove={() => {
+            approve.mutate({ orderId: detailOrder.id, approve: true })
+            setDetailOrder(null)
+          }}
+          onReject={(reason) => {
+            approve.mutate({ orderId: detailOrder.id, approve: false, reason })
+            setDetailOrder(null)
+          }}
+          isActing={approve.isPending}
+        />
       )}
     </div>
   )

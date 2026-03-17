@@ -17,7 +17,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  static const _tabs = ['/shift', '/orders', '/trips'];
+  static const _tabs = ['/shift', '/orders', '/trips', '/costs'];
   String? _shiftStatus; // 'on_shift' | 'off_shift' | null
   StreamSubscription? _sub;
   Timer? _pollTimer;
@@ -83,6 +83,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (loc.startsWith('/shift'))  return 0;
     if (loc.startsWith('/orders')) return 1;
     if (loc.startsWith('/trips'))  return 2;
+    if (loc.startsWith('/costs'))  return 3;
     return 0;
   }
 
@@ -126,6 +127,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             icon: Icon(Icons.local_shipping_outlined),
             selectedIcon: Icon(Icons.local_shipping),
             label: 'Chuyến đi',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Chi phí',
           ),
         ],
       ),
@@ -233,7 +239,7 @@ class HamburgerMenu extends StatelessWidget {
           case 'feedback':
             context.go('/feedback');
           case 'payment':
-            context.go('/payment-history');
+            context.go('/costs');
           case 'logout':
             await Supabase.instance.client.auth.signOut();
             if (context.mounted) context.go('/login');

@@ -13,6 +13,7 @@ import '../features/trips/trip_orders_screen.dart';
 import '../features/shifts/shift_screen.dart';
 import '../features/feedback/feedback_screen.dart';
 import '../features/payments/payment_history_screen.dart';
+import '../features/costs/costs_screen.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -91,6 +92,10 @@ final router = GoRouter(
         GoRoute(
           path: '/feedback',
           builder: (_, __) => const FeedbackScreen(),
+        ),
+        GoRoute(
+          path: '/costs',
+          builder: (_, __) => const CostsScreen(),
         ),
         GoRoute(
           path: '/payment-history',
