@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// ADC Theme — đồng bộ với Web App
-/// Màu: Cyan #06b6d4 (primary), Navy #164e63 (dark), Navy-950 #0a3444 (AppBar)
+/// Màu: Cyan #0891b2 (AppBar primary), Cyan #06b6d4 (accent), Navy #0a3444 (dark)
 /// Font: Outfit (giống web app)
 class AppTheme {
   // Palette (matching web app CSS variables)
@@ -29,7 +29,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: _navy950,
+        backgroundColor: _cyan600,   // Cyan #0891B2 as primary AppBar
         foregroundColor: Colors.white,
         titleTextStyle: GoogleFonts.outfit(
           fontSize: 18,
@@ -39,12 +39,16 @@ class AppTheme {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       tabBarTheme: TabBarThemeData(
-        labelColor: _cyan500,
-        unselectedLabelColor: const Color(0xFF94A3B8),
+        // When TabBar is inside AppBar (dark bg), screens override to white
+        // When TabBar is in body, these defaults apply
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white60,
         indicatorColor: _cyan500,
+        indicatorWeight: 3,
+        dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
-        labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 14),
-        unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w500, fontSize: 14),
+        labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w500, fontSize: 13),
       ),
       cardTheme: CardThemeData(
         elevation: 1,
@@ -105,7 +109,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: _navy950,
+        backgroundColor: _cyan600,   // Cyan #0891B2 as primary AppBar (dark mode)
         foregroundColor: Colors.white,
         titleTextStyle: GoogleFonts.outfit(
           fontSize: 18,

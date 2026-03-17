@@ -10,16 +10,19 @@ class TripsScreen extends StatefulWidget {
   State<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen> {
+class _TripsScreenState extends State<TripsScreen>
+    with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _active    = [];
   List<Map<String, dynamic>> _completed = [];
   bool _loading = true;
   RealtimeChannel? _channel;
+  late TabController _tabCtrl;
 
   @override
   void initState() {
     super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
     _fetch();
     _subscribeRealtime();
   }
@@ -67,9 +70,42 @@ class _TripsScreenState extends State<TripsScreen> {
     }
   }
 
+  Widget _tripsList(List<Map<String, dynamic>> trips, bool completed) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (trips.isEmpty) return _emptyTab(completed);
+    return RefreshIndicator(
+      onRefresh: _fetch,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: trips.length,
+        itemBuilder: (_, i) => _TripCard(
+          trip: trips[i],
+          completed: completed,
+          onTap: () => context.go('/trips/${trips[i]['id']}'),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyTab(bool completed) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          completed ? Icons.check_circle_outline_rounded : Icons.local_shipping_outlined,
+          size: 56, color: Colors.grey[300],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          completed ? 'Chưa có chuyến đi hoàn thành' : 'Không có chuyến đang giao',
+          style: TextStyle(fontSize: 15, color: Colors.grey[500]),
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final isEmpty = _active.isEmpty && _completed.isEmpty;
     return Scaffold(
       backgroundColor: const Color(0xFFEFF6FF),
       appBar: AppBar(
@@ -79,62 +115,46 @@ class _TripsScreenState extends State<TripsScreen> {
           const HamburgerMenu(),
           const SizedBox(width: 4),
         ],
+        bottom: TabBar(
+          controller: _tabCtrl,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          dividerColor: Colors.transparent,
+          tabs: [
+            Tab(
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.local_shipping_rounded, size: 16),
+                const SizedBox(width: 6),
+                Text('Đang giao (${_active.length})',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13)),
+              ]),
+            ),
+            Tab(
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.check_circle_rounded, size: 16),
+                const SizedBox(width: 6),
+                Text('Hoàn thành (${_completed.length})',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13)),
+              ]),
+            ),
+          ],
+        ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : isEmpty
-              ? _empty()
-              : RefreshIndicator(
-                  onRefresh: _fetch,
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    children: [
-                      if (_active.isNotEmpty) ...[
-                        _sectionHeader('🚚 Đang giao (${_active.length})', const Color(0xFF0891B2)),
-                        ..._active.map((t) => _TripCard(
-                              trip: t,
-                              completed: false,
-                              onTap: () => context.go('/trips/${t['id']}'),
-                            )),
-                      ],
-                      if (_completed.isNotEmpty) ...[
-                        _sectionHeader('✅ Đã hoàn thành (${_completed.length})', const Color(0xFF059669)),
-                        ..._completed.map((t) => _TripCard(
-                              trip: t,
-                              completed: true,
-                              onTap: () => context.go('/trips/${t['id']}'),
-                            )),
-                      ],
-                    ],
-                  ),
-                ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          _tripsList(_active, false),
+          _tripsList(_completed, true),
+        ],
+      ),
     );
   }
 
-  Widget _sectionHeader(String title, Color color) => Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
-        child: Text(title,
-            style: GoogleFonts.outfit(
-                fontSize: 13, fontWeight: FontWeight.w700, color: color)),
-      );
-
-  Widget _empty() => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.route_rounded, size: 56, color: Colors.grey[300]),
-            const SizedBox(height: 12),
-            Text('Chưa có chuyến đi nào',
-                style: TextStyle(fontSize: 15, color: Colors.grey[500])),
-            const SizedBox(height: 6),
-            Text('Xếp chuyến từ tab Đã nhận',
-                style: TextStyle(fontSize: 13, color: Colors.grey[400])),
-          ],
-        ),
-      );
-
   @override
   void dispose() {
+    _tabCtrl.dispose();
     _channel?.unsubscribe();
     super.dispose();
   }

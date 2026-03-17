@@ -21,6 +21,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   late TabController _tabCtrl;
   List<Map<String, dynamic>> _available = [];
   List<Map<String, dynamic>> _assigned  = [];
+  List<Map<String, dynamic>> _history   = [];
   bool _loading = true;
   final _supabase = Supabase.instance.client;
 
@@ -32,7 +33,7 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl = TabController(length: 3, vsync: this);
     _fetchOrders();
   }
 
@@ -61,6 +62,7 @@ class _OrdersScreenState extends State<OrdersScreen>
           .limit(50);
 
       List<Map<String, dynamic>> assignedRes = [];
+      List<Map<String, dynamic>> historyRes  = [];
       if (userId != null) {
         assignedRes = await _supabase
             .from('orders')
@@ -69,12 +71,21 @@ class _OrdersScreenState extends State<OrdersScreen>
             .eq('status', 'assigned')
             .order('created_at', ascending: false)
             .limit(50);
+
+        historyRes = await _supabase
+            .from('orders')
+            .select(selectQuery)
+            .eq('assigned_to', userId)
+            .inFilter('status', ['delivered', 'failed', 'cancelled'])
+            .order('delivered_at', ascending: false)
+            .limit(100);
       }
 
       if (mounted) {
         setState(() {
           _available = List<Map<String, dynamic>>.from(availRes);
           _assigned  = List<Map<String, dynamic>>.from(assignedRes);
+          _history   = List<Map<String, dynamic>>.from(historyRes);
           _loading   = false;
         });
       }
@@ -215,9 +226,17 @@ class _OrdersScreenState extends State<OrdersScreen>
         bottom: TabBar(
           controller: _tabCtrl,
           isScrollable: false,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
+          dividerColor: Colors.transparent,
+          labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 12),
+          unselectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w500, fontSize: 12),
           tabs: [
             Tab(text: 'Chờ nhận (${_available.length})'),
             Tab(text: 'Đã nhận (${_assigned.length})'),
+            Tab(text: 'Lịch sử (${_history.length})'),
           ],
         ),
         actions: [
@@ -235,6 +254,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                   children: [
                     _buildAvailableList(),
                     _buildAssignedList(),
+                    _buildHistoryList(),
                   ],
                 ),
           // ── Floating trip bubble ───────────────────────
@@ -297,6 +317,93 @@ class _OrdersScreenState extends State<OrdersScreen>
         },
       ),
     );
+  }
+
+  // ─── Tab 3: Lịch sử (delivered / failed / cancelled) ────
+  Widget _buildHistoryList() {
+    if (_history.isEmpty) {
+      return _emptyState(Icons.history_rounded, 'Chưa có lịch sử giao hàng');
+    }
+    return RefreshIndicator(
+      onRefresh: _fetchOrders,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: _history.length,
+        itemBuilder: (_, i) {
+          final o = _history[i];
+          final status = o['status'] as String? ?? '';
+          final Color statusColor;
+          final String statusLabel;
+          switch (status) {
+            case 'delivered':
+              statusColor = const Color(0xFF059669);
+              statusLabel = '✅ Đã giao';
+            case 'failed':
+              statusColor = const Color(0xFFDC2626);
+              statusLabel = '❌ Thất bại';
+            default:
+              statusColor = const Color(0xFF94A3B8);
+              statusLabel = '🚫 Đã huỷ';
+          }
+          final loc = (o['delivery_location'] as Map?) ?? {};
+          final delivAt = o['delivered_at'] as String?;
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
+            child: InkWell(
+              onTap: () => context.go('/orders/${o['id']}'),
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(children: [
+                  Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      status == 'delivered' ? Icons.check_circle_outline_rounded
+                      : status == 'failed'  ? Icons.cancel_outlined
+                      : Icons.remove_circle_outline_rounded,
+                      color: statusColor, size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(o['code'] as String? ?? '—',
+                          style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                      if (loc['name'] != null)
+                        Text(loc['name'] as String, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+                      if (delivAt != null)
+                        Text(_fmtDate(delivAt), style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1))),
+                    ]),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(statusLabel,
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+                  ),
+                ]),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _fmtDate(String ts) {
+    try {
+      final dt = DateTime.parse(ts).toLocal();
+      return '${dt.day.toString().padLeft(2,'0')}/${dt.month.toString().padLeft(2,'0')} ${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
+    } catch (_) { return ''; }
   }
 
   Widget _emptyState(IconData icon, String label) {

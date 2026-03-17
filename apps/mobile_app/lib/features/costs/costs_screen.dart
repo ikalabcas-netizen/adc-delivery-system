@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../shell/app_shell.dart';
 
 final _supabase = Supabase.instance.client;
 final _fmt = NumberFormat('#,###', 'vi_VN');
@@ -58,14 +59,15 @@ class _CostsScreenState extends State<CostsScreen>
       backgroundColor: const Color(0xFFEFF6FF),
       appBar: AppBar(
         title: Text('Chi phí & Thanh toán', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-        backgroundColor: const Color(0xFF0891B2),
-        foregroundColor: Colors.white,
+        // backgroundColor inherited from theme (Cyan #0891B2)
+        actions: [const HamburgerMenu()],
         bottom: TabBar(
           controller: _outerTab,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           indicatorColor: Colors.white,
           indicatorWeight: 3,
+          dividerColor: Colors.transparent,
           labelStyle: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700),
           tabs: const [
             Tab(text: 'Phụ phí đơn hàng'),
