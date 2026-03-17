@@ -44,7 +44,6 @@ class AppTheme {
         labelColor: Colors.white,
         unselectedLabelColor: Colors.white60,
         indicatorColor: _cyan500,
-        indicatorWeight: 3,
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
         labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13),
