@@ -86,27 +86,37 @@ function useApproveFee() {
 function useCreateVouchers() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ selectedIds, fees }: { selectedIds: Set<string>; fees: any[] }) => {
-      const byDriver = new Map<string, string[]>()
-      for (const o of fees) {
-        if (!selectedIds.has(o.id)) continue
-        if (computePaymentStatus(o) !== 'approved') continue
-        const drvId = o.assigned_driver?.id
+    mutationFn: async ({ selectedIds }: { selectedIds: Set<string> }) => {
+      if (selectedIds.size === 0) throw new Error('Chưa chọn đơn nào')
+
+      // Fetch fresh data from DB directly — don't rely on cached fees state
+      const { data: rows, error } = await supabase
+        .from('orders')
+        .select('id, extra_fee, assigned_to, assigned_driver:profiles!orders_assigned_to_fkey(id, full_name)')
+        .in('id', Array.from(selectedIds))
+        .eq('extra_fee_status', 'approved')
+      if (error) throw error
+
+      const approved = rows ?? []
+      if (approved.length === 0) throw new Error('Không có đơn nào đang ở trạng thái Đã duyệt trong danh sách chọn')
+
+      // Group by driver
+      const byDriver = new Map<string, { total: number; orderIds: string[] }>()
+      for (const o of approved) {
+        const drvId = (o as any).assigned_to as string
         if (!drvId) continue
-        if (!byDriver.has(drvId)) byDriver.set(drvId, [])
-        byDriver.get(drvId)!.push(o.id)
+        if (!byDriver.has(drvId)) byDriver.set(drvId, { total: 0, orderIds: [] })
+        const entry = byDriver.get(drvId)!
+        entry.total += (o.extra_fee ?? 0)
+        entry.orderIds.push(o.id)
       }
-      if (byDriver.size === 0) throw new Error('Không có đơn đã duyệt (chưa có chứng từ) nào được chọn')
+      if (byDriver.size === 0) throw new Error('Không tìm thấy thông tin giao nhận cho đơn đã chọn')
 
       const { data: session } = await supabase.auth.getSession()
       const createdBy = session?.session?.user?.id
 
-      for (const [driverId, orderIds] of byDriver.entries()) {
-        const { data: rows } = await supabase.from('orders')
-          .select('id, extra_fee').in('id', orderIds).eq('extra_fee_status', 'approved')
-        const total = (rows ?? []).reduce((s, r) => s + (r.extra_fee ?? 0), 0)
+      for (const [driverId, { total, orderIds }] of byDriver.entries()) {
         if (total === 0) continue
-
         const today = new Date()
         const pad = (n: number) => String(n).padStart(2, '0')
         const dateStr = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`
@@ -119,7 +129,7 @@ function useCreateVouchers() {
           .select().single()
         if (vErr) throw vErr
 
-        const items = (rows ?? []).map(r => ({ voucher_id: voucher.id, order_id: r.id, amount: r.extra_fee ?? 0 }))
+        const items = orderIds.map(oid => ({ voucher_id: voucher.id, order_id: oid, amount: (approved.find(o => o.id === oid)?.extra_fee ?? 0) }))
         if (items.length > 0) {
           const { error: iErr } = await supabase.from('payment_voucher_items').insert(items)
           if (iErr) throw iErr
@@ -129,6 +139,7 @@ function useCreateVouchers() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['accounting'] }),
   })
 }
+
 
 function useMarkPaid() {
   const qc = useQueryClient()
@@ -407,7 +418,7 @@ export function AccountingPage() {
             {selected.size > 0 && (
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {hasNonApproved && <span style={{ fontSize: 11, color: '#d97706' }}>⚠️ Bỏ chọn đơn đã trong chứng từ</span>}
-                <button onClick={() => createVouchers.mutate({ selectedIds: selected, fees })}
+                <button onClick={() => createVouchers.mutate({ selectedIds: selected })}
                   disabled={createVouchers.isPending || hasNonApproved}
                   style={{ padding: '6px 14px', borderRadius: 10, background: hasNonApproved ? '#94a3b8' : '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: hasNonApproved ? 'not-allowed' : 'pointer', ...F }}>
                   {createVouchers.isPending
