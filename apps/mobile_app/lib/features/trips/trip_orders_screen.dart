@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
+import '../../core/image_cache_manager.dart';
 import 'delivery_proof_helper.dart';
 import 'trip_service.dart';
 
@@ -199,7 +201,13 @@ class _OrderItem extends StatelessWidget {
               const SizedBox(height: 10),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.network(proofUrl, height: 100, width: double.infinity, fit: BoxFit.cover),
+                child: CachedNetworkImage(
+                  imageUrl: proofUrl,
+                  cacheManager: AppImageCacheManager.instance,
+                  height: 100, width: double.infinity, fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(height: 100, color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                ),
               ),
             ],
             // Action buttons (only for active orders)

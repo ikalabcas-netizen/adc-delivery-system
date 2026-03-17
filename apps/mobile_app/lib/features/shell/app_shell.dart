@@ -28,8 +28,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _loadShiftStatus();
     _subscribeShiftStatus();
-    // Poll every 30s as safety net in case Realtime is slow
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadShiftStatus());
+    // Poll every 120s as safety net (Realtime subscription handles instant updates)
+    _pollTimer = Timer.periodic(const Duration(seconds: 120), (_) => _loadShiftStatus());
   }
 
   @override

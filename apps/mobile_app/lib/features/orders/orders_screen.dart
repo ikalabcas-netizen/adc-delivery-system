@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme.dart';
+import '../../core/cache_service.dart';
 import '../trips/trip_service.dart';
 import '../shell/app_shell.dart';
 
@@ -24,27 +25,93 @@ class _OrdersScreenState extends State<OrdersScreen>
   List<Map<String, dynamic>> _history   = [];
   bool _loading = true;
   final _supabase = Supabase.instance.client;
+  final _cache = CacheService.instance;
+
+  // ── Realtime channels ──────────────────────────────────
+  RealtimeChannel? _channelNew;
+  RealtimeChannel? _channelMine;
 
   // ── Trip Assembly State ──────────────────────────────────
-  /// Orders staged (selected) for the current trip
   final Set<String> _staged = {};
   bool _buildingTrip = false;
+
+  // ── Lazy load flags ─────────────────────────────────────
+  bool _historyLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl.addListener(_onTabChanged);
     _fetchOrders();
+    _subscribeRealtime();
   }
 
   @override
   void dispose() {
     _tabCtrl.dispose();
+    _channelNew?.unsubscribe();
+    _channelMine?.unsubscribe();
     super.dispose();
   }
 
+  void _onTabChanged() {
+    if (_tabCtrl.index == 2 && !_historyLoaded) {
+      _fetchHistory();
+    }
+  }
+
+  void _subscribeRealtime() {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Channel 1: new pending orders (INSERT on orders table)
+    _channelNew = _supabase
+        .channel('orders_new_pending')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'orders',
+          callback: (payload) {
+            final rec = payload.newRecord;
+            if (rec['status'] == 'pending') {
+              _cache.invalidatePrefix('orders_');
+              _fetchOrders();
+            }
+          },
+        )
+        .subscribe();
+
+    // Channel 2: updates to orders assigned to me
+    _channelMine = _supabase
+        .channel('orders_mine_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'orders',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'assigned_to',
+            value: userId,
+          ),
+          callback: (_) {
+            _cache.invalidatePrefix('orders_');
+            _fetchOrders();
+          },
+        )
+        .subscribe();
+  }
+
   Future<void> _fetchOrders() async {
-    setState(() => _loading = true);
+    // Stale-while-revalidate: show cached data immediately
+    final cachedAvail = _cache.peek<List<Map<String, dynamic>>>('orders_available');
+    final cachedAssigned = _cache.peek<List<Map<String, dynamic>>>('orders_assigned');
+    if (cachedAvail != null && _available.isEmpty) {
+      setState(() { _available = cachedAvail; _assigned = cachedAssigned ?? []; _loading = false; });
+    } else {
+      setState(() => _loading = true);
+    }
+
     final userId = _supabase.auth.currentUser?.id;
     try {
       final selectQuery = '''
@@ -62,7 +129,6 @@ class _OrdersScreenState extends State<OrdersScreen>
           .limit(50);
 
       List<Map<String, dynamic>> assignedRes = [];
-      List<Map<String, dynamic>> historyRes  = [];
       if (userId != null) {
         assignedRes = await _supabase
             .from('orders')
@@ -71,27 +137,52 @@ class _OrdersScreenState extends State<OrdersScreen>
             .eq('status', 'assigned')
             .order('created_at', ascending: false)
             .limit(50);
-
-        historyRes = await _supabase
-            .from('orders')
-            .select(selectQuery)
-            .eq('assigned_to', userId)
-            .inFilter('status', ['delivered', 'failed', 'cancelled'])
-            .order('delivered_at', ascending: false)
-            .limit(100);
       }
+
+      final avail = List<Map<String, dynamic>>.from(availRes);
+      final assigned = List<Map<String, dynamic>>.from(assignedRes);
+
+      // Cache results
+      _cache.set('orders_available', avail, ttl: const Duration(minutes: 1));
+      _cache.set('orders_assigned', assigned, ttl: const Duration(minutes: 1));
 
       if (mounted) {
         setState(() {
-          _available = List<Map<String, dynamic>>.from(availRes);
-          _assigned  = List<Map<String, dynamic>>.from(assignedRes);
-          _history   = List<Map<String, dynamic>>.from(historyRes);
+          _available = avail;
+          _assigned  = assigned;
           _loading   = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Lazy-loaded: only called when user switches to History tab
+  Future<void> _fetchHistory() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    try {
+      final selectQuery = '''
+        *,
+        pickup_location:locations!orders_pickup_location_id_fkey(id, name, address, lat, lng),
+        delivery_location:locations!orders_delivery_location_id_fkey(id, name, address, lat, lng),
+        assigned_driver:profiles!orders_assigned_to_fkey(id, full_name)
+      ''';
+      final historyRes = await _supabase
+          .from('orders')
+          .select(selectQuery)
+          .eq('assigned_to', userId)
+          .inFilter('status', ['delivered', 'failed', 'cancelled'])
+          .order('delivered_at', ascending: false)
+          .limit(100);
+      if (mounted) {
+        setState(() {
+          _history = List<Map<String, dynamic>>.from(historyRes);
+          _historyLoaded = true;
+        });
+      }
+    } catch (_) {}
   }
 
   bool _claiming = false;
@@ -107,6 +198,7 @@ class _OrdersScreenState extends State<OrdersScreen>
         'status': 'assigned',
       }).eq('id', orderId);
 
+      _cache.invalidatePrefix('orders_');
       await _fetchOrders();
 
       if (mounted) {
@@ -337,60 +429,82 @@ class _OrdersScreenState extends State<OrdersScreen>
           switch (status) {
             case 'delivered':
               statusColor = const Color(0xFF059669);
-              statusLabel = '✅ Đã giao';
+              statusLabel = 'Đã giao';
             case 'failed':
               statusColor = const Color(0xFFDC2626);
-              statusLabel = '❌ Thất bại';
+              statusLabel = 'Thất bại';
             default:
               statusColor = const Color(0xFF94A3B8);
-              statusLabel = '🚫 Đã huỷ';
+              statusLabel = 'Đã huỷ';
           }
           final loc = (o['delivery_location'] as Map?) ?? {};
           final delivAt = o['delivered_at'] as String?;
-          return Card(
+
+          return Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            elevation: 0,
-            child: InkWell(
-              onTap: () => context.go('/orders/${o['id']}'),
-              borderRadius: BorderRadius.circular(14),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(children: [
-                  Container(
-                    width: 44, height: 44,
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: () => context.go('/orders/${o['id']}'),
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(children: [
+                    // 44px icon box
+                    Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        status == 'delivered' ? Icons.check_circle_rounded
+                        : status == 'failed'  ? Icons.cancel_rounded
+                        : Icons.remove_circle_rounded,
+                        color: statusColor, size: 22,
+                      ),
                     ),
-                    child: Icon(
-                      status == 'delivered' ? Icons.check_circle_outline_rounded
-                      : status == 'failed'  ? Icons.cancel_outlined
-                      : Icons.remove_circle_outline_rounded,
-                      color: statusColor, size: 22,
+                    const SizedBox(width: 12),
+                    // Info
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(o['code'] as String? ?? '—',
+                            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                        const SizedBox(height: 3),
+                        if (loc['name'] != null)
+                          Row(children: [
+                            const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFFD97706)),
+                            const SizedBox(width: 4),
+                            Expanded(child: Text(loc['name'] as String,
+                                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          ]),
+                        if (delivAt != null)
+                          Text(_fmtDate(delivAt),
+                              style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1))),
+                      ]),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(o['code'] as String? ?? '—',
-                          style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
-                      if (loc['name'] != null)
-                        Text(loc['name'] as String, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-                      if (delivAt != null)
-                        Text(_fmtDate(delivAt), style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1))),
-                    ]),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
+                    // Status badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(statusLabel,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
                     ),
-                    child: Text(statusLabel,
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
-                  ),
-                ]),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFFCBD5E1)),
+                  ]),
+                ),
               ),
             ),
           );

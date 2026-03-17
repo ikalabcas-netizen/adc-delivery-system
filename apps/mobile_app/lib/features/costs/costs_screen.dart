@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/image_cache_manager.dart';
 import '../shell/app_shell.dart';
 
 final _supabase = Supabase.instance.client;
@@ -374,8 +376,13 @@ class _FeeCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   child: Stack(
                     children: [
-                      Image.network(proofUrl, height: 120, width: double.infinity, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                      CachedNetworkImage(
+                        imageUrl: proofUrl,
+                        cacheManager: AppImageCacheManager.instance,
+                        height: 120, width: double.infinity, fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(height: 120, color: const Color(0xFFF1F5F9), child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                      ),
                       Positioned(bottom: 6, right: 6, child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
@@ -429,17 +436,12 @@ class _ProofPhotoPage extends StatelessWidget {
         minScale: 0.5,
         maxScale: 4.0,
         child: Center(
-          child: Image.network(
-            url,
+          child: CachedNetworkImage(
+            imageUrl: url,
+            cacheManager: AppImageCacheManager.instance,
             fit: BoxFit.contain,
-            loadingBuilder: (ctx, child, progress) {
-              if (progress == null) return child;
-              final pct = progress.expectedTotalBytes != null
-                  ? (progress.cumulativeBytesLoaded / progress.expectedTotalBytes!)
-                  : null;
-              return Center(child: CircularProgressIndicator(value: pct, color: Colors.white));
-            },
-            errorBuilder: (_, __, ___) => const Center(
+            placeholder: (_, __) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+            errorWidget: (_, __, ___) => const Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.broken_image_rounded, size: 48, color: Colors.white54),
                 SizedBox(height: 12),
