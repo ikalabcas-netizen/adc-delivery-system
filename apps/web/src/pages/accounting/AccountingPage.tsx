@@ -1,26 +1,42 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Receipt, CheckCircle, DollarSign, Clock, X, ZoomIn } from 'lucide-react'
+import { Receipt, CheckCircle, DollarSign, Clock, X, ZoomIn, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import type { PaymentVoucher } from '@adc/shared-types'
 
-// ── Formatting ─────────────────────────────────────────
 const fmt = (n: number) => n.toLocaleString('vi-VN') + ' ₫'
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+const F = { fontFamily: 'Outfit, sans-serif' }
+
+// ── Payment status helper ──────────────────────────────
+// pending | approved | approved_vouchered | approved_paid | rejected
+function computePaymentStatus(o: any): string {
+  const base = o.extra_fee_status as string
+  if (base === 'rejected') return 'rejected'
+  if (base !== 'approved') return base
+  const items: any[] = o.voucher_items ?? []
+  if (items.length === 0) return 'approved'
+  const voucher = items[0]?.voucher
+  if (!voucher) return 'approved'
+  if (voucher.status === 'paid' || voucher.status === 'confirmed') return 'approved_paid'
+  return 'approved_vouchered'
+}
 
 // ── Hooks ──────────────────────────────────────────────
-function usePendingFees() {
+function useFees() {
   return useQuery({
-    queryKey: ['accounting', 'pending-fees'],
+    queryKey: ['accounting', 'fees'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          id, code, status, extra_fee, extra_fee_note, extra_fee_status, extra_fee_rejected_reason,
-          delivery_proof_url, proof_photo_url,
-          created_at, delivered_at,
+          id, code, extra_fee, extra_fee_note, extra_fee_status, extra_fee_rejected_reason,
+          delivery_proof_url, proof_photo_url, delivered_at,
           assigned_driver:profiles!orders_assigned_to_fkey(id, full_name, avatar_url, phone),
-          delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
+          delivery_location:locations!orders_delivery_location_id_fkey(id, name),
+          voucher_items:payment_voucher_items(
+            id, amount,
+            voucher:payment_vouchers(id, voucher_code, status)
+          )
         `)
         .gt('extra_fee', 0)
         .order('delivered_at', { ascending: false })
@@ -38,44 +54,18 @@ function useVouchers() {
       const { data, error } = await supabase
         .from('payment_vouchers')
         .select(`
-          *,
-          driver:profiles!payment_vouchers_driver_id_fkey(id, full_name, avatar_url, vehicle_plate),
+          id, voucher_code, total_amount, status, paid_at, confirmed_at, created_at,
+          driver:profiles!payment_vouchers_driver_id_fkey(id, full_name, avatar_url),
           items:payment_voucher_items(
-            id, amount, order_id,
+            id, amount,
             order:orders(id, code, delivery_location:locations!orders_delivery_location_id_fkey(id, name))
           )
         `)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as PaymentVoucher[]
+      return (data ?? []) as any[]
     },
     staleTime: 1000 * 30,
-  })
-}
-
-function useAccountingStats() {
-  return useQuery({
-    queryKey: ['accounting', 'stats'],
-    queryFn: async () => {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('extra_fee, extra_fee_status')
-        .gt('extra_fee', 0)
-
-      const { data: vouchers } = await supabase
-        .from('payment_vouchers')
-        .select('total_amount, status, paid_at')
-
-      const pending  = (orders ?? []).filter(o => o.extra_fee_status === 'pending').reduce((s, o) => s + (o.extra_fee ?? 0), 0)
-      const approved = (orders ?? []).filter(o => o.extra_fee_status === 'approved').reduce((s, o) => s + (o.extra_fee ?? 0), 0)
-      const thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0,0,0,0)
-      const paidThisMonth = (vouchers ?? [])
-        .filter(v => v.status === 'paid' && v.paid_at && new Date(v.paid_at) >= thisMonth)
-        .reduce((s, v) => s + v.total_amount, 0)
-
-      return { pending, approved, paidThisMonth }
-    },
-    staleTime: 1000 * 60,
   })
 }
 
@@ -89,44 +79,51 @@ function useApproveFee() {
       }).eq('id', orderId)
       if (error) throw error
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['accounting'] })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['accounting'] }),
   })
 }
 
-function useCreateVoucher() {
+function useCreateVouchers() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ driverId, orderIds }: { driverId: string; orderIds: string[] }) => {
-      // Only use approved orders
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('id, extra_fee, extra_fee_status')
-        .in('id', orderIds)
+    mutationFn: async ({ selectedIds, fees }: { selectedIds: Set<string>; fees: any[] }) => {
+      const byDriver = new Map<string, string[]>()
+      for (const o of fees) {
+        if (!selectedIds.has(o.id)) continue
+        if (computePaymentStatus(o) !== 'approved') continue
+        const drvId = o.assigned_driver?.id
+        if (!drvId) continue
+        if (!byDriver.has(drvId)) byDriver.set(drvId, [])
+        byDriver.get(drvId)!.push(o.id)
+      }
+      if (byDriver.size === 0) throw new Error('Không có đơn đã duyệt (chưa có chứng từ) nào được chọn')
 
-      const approvedOrders = (orders ?? []).filter(o => o.extra_fee_status === 'approved')
-      if (approvedOrders.length === 0) throw new Error('Không có đơn nào đã được duyệt')
+      const { data: session } = await supabase.auth.getSession()
+      const createdBy = session?.session?.user?.id
 
-      const total = approvedOrders.reduce((s, o) => s + (o.extra_fee ?? 0), 0)
-      const today = new Date()
-      const pad = (n: number) => String(n).padStart(2, '0')
-      const dateStr = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`
-      const rand = Math.floor(Math.random() * 900 + 100)
-      const voucherCode = `PAY-${dateStr}-${rand}`
+      for (const [driverId, orderIds] of byDriver.entries()) {
+        const { data: rows } = await supabase.from('orders')
+          .select('id, extra_fee').in('id', orderIds).eq('extra_fee_status', 'approved')
+        const total = (rows ?? []).reduce((s, r) => s + (r.extra_fee ?? 0), 0)
+        if (total === 0) continue
 
-      const { data: voucher, error: vErr } = await supabase
-        .from('payment_vouchers')
-        .insert({ driver_id: driverId, voucher_code: voucherCode, total_amount: total })
-        .select().single()
-      if (vErr) throw vErr
+        const today = new Date()
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const dateStr = `${today.getFullYear()}${pad(today.getMonth()+1)}${pad(today.getDate())}`
+        const rand = String(Math.floor(Math.random() * 9000 + 1000))
+        const voucherCode = `PAY-${dateStr}-${rand}`
 
-      const items = approvedOrders.map(o => ({
-        voucher_id: voucher.id, order_id: o.id, amount: o.extra_fee ?? 0,
-      }))
-      if (items.length > 0) {
-        const { error: iErr } = await supabase.from('payment_voucher_items').insert(items)
-        if (iErr) throw iErr
+        const { data: voucher, error: vErr } = await supabase
+          .from('payment_vouchers')
+          .insert({ driver_id: driverId, voucher_code: voucherCode, total_amount: total, created_by: createdBy })
+          .select().single()
+        if (vErr) throw vErr
+
+        const items = (rows ?? []).map(r => ({ voucher_id: voucher.id, order_id: r.id, amount: r.extra_fee ?? 0 }))
+        if (items.length > 0) {
+          const { error: iErr } = await supabase.from('payment_voucher_items').insert(items)
+          if (iErr) throw iErr
+        }
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['accounting'] }),
@@ -145,364 +142,287 @@ function useMarkPaid() {
   })
 }
 
-// ── Components ─────────────────────────────────────────
+// ── Badges ─────────────────────────────────────────────
+const PAY_STATUS_CFG: Record<string, { label: string; bg: string; color: string }> = {
+  pending:            { label: '⏳ Chờ duyệt',        bg: '#fef9c3', color: '#92400e' },
+  approved:           { label: '✅ Đã duyệt',          bg: '#dcfce7', color: '#166534' },
+  approved_vouchered: { label: '📋 Trong chứng từ',   bg: '#e0f2fe', color: '#0369a1' },
+  approved_paid:      { label: '💵 Đã chi trả',        bg: '#f0fdf4', color: '#15803d' },
+  rejected:           { label: '❌ Từ chối',           bg: '#fee2e2', color: '#991b1b' },
+}
 
-function SummaryCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function PayStatusBadge({ payStatus }: { payStatus: string }) {
+  const c = PAY_STATUS_CFG[payStatus] ?? PAY_STATUS_CFG.pending
   return (
-    <div style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', display: 'flex', gap: 14, alignItems: 'center', flex: '1 1 160px' }}>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>{value}</div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>{label}</div>
-      </div>
-    </div>
+    <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.color, whiteSpace: 'nowrap' }}>
+      {c.label}
+    </span>
   )
 }
 
 function VoucherStatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { label: string; bg: string; color: string }> = {
-    pending:   { label: '⏳ Chờ chi trả',  bg: '#fef9c3', color: '#92400e' },
-    paid:      { label: '✅ Đã chi trả',   bg: '#dcfce7', color: '#166534' },
-    confirmed: { label: '✓ Hoàn tất',      bg: '#f0f9ff', color: '#0369a1' },
+    pending:   { label: '⏳ Chờ chi',   bg: '#fef9c3', color: '#92400e' },
+    paid:      { label: '✅ Đã chi trả', bg: '#dcfce7', color: '#166534' },
+    confirmed: { label: '✓ Hoàn tất',  bg: '#f0f9ff', color: '#0369a1' },
   }
   const c = cfg[status] ?? cfg.pending
   return <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.color }}>{c.label}</span>
 }
 
-function FeeStatusBadge({ status }: { status?: string | null }) {
-  const cfg: Record<string, { label: string; bg: string; color: string }> = {
-    pending:  { label: 'Chờ duyệt', bg: '#fef9c3', color: '#92400e' },
-    approved: { label: 'Đã duyệt',  bg: '#dcfce7', color: '#166534' },
-    rejected: { label: 'Từ chối',   bg: '#fee2e2', color: '#991b1b' },
-  }
-  const c = cfg[status ?? 'pending'] ?? cfg.pending
-  return <span style={{ padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: c.bg, color: c.color }}>{c.label}</span>
+// ── Proof Photo Zoom ────────────────────────────────────
+function ProofPhotoModal({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+      <img src={url} alt="Ảnh giao hàng" style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 12 }} />
+      <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex' }}>
+        <X size={20} color="#fff" />
+      </button>
+    </div>
+  )
 }
 
-// ── Fee Detail Modal ───────────────────────────────────
-function FeeDetailModal({
-  order,
-  onClose,
-  onApprove,
-  onReject,
-  isActing,
-}: {
-  order: any
-  onClose: () => void
-  onApprove: () => void
-  onReject: (reason: string) => void
-  isActing: boolean
-}) {
-  const [rejectReason, setRejectReason] = useState('')
-  const [showReject, setShowReject] = useState(false)
-  const [imgZoomed, setImgZoomed] = useState(false)
+// ── Inline Reject Form ─────────────────────────────────
+function InlineRejectForm({ onSubmit, onCancel }: { onSubmit: (r: string) => void; onCancel: () => void }) {
+  const [reason, setReason] = useState('')
+  return (
+    <div style={{ padding: '8px 14px 12px', background: '#fff5f5', borderTop: '1px solid #fecaca' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#991b1b', marginBottom: 6, ...F }}>Lý do từ chối:</div>
+      <textarea value={reason} onChange={e => setReason(e.target.value)} autoFocus placeholder="Nhập lý do..." rows={2}
+        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #fecaca', fontSize: 12, ...F, resize: 'none', boxSizing: 'border-box' }} />
+      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+        <button onClick={onCancel} style={{ padding: '5px 12px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: 12, ...F }}>Huỷ</button>
+        <button onClick={() => reason.trim() && onSubmit(reason.trim())} disabled={!reason.trim()}
+          style={{ padding: '5px 12px', borderRadius: 7, border: 'none', background: '#dc2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12, ...F, opacity: reason.trim() ? 1 : 0.5 }}>
+          Xác nhận
+        </button>
+      </div>
+    </div>
+  )
+}
 
-  const proofUrl = order.delivery_proof_url || order.proof_photo_url
-  const status = order.extra_fee_status as string
+// ── Fee Row ────────────────────────────────────────────
+function FeeRow({ o, onApprove, onReject, isActing, selected, onToggle }: {
+  o: any; onApprove: () => void; onReject: (r: string) => void
+  isActing: boolean; selected: boolean; onToggle: () => void
+}) {
+  const [showRejectForm, setShowRejectForm] = useState(false)
+  const [showProof, setShowProof] = useState(false)
+  const proofUrl = o.delivery_proof_url || o.proof_photo_url
+  const status = o.extra_fee_status as string
+  const payStatus = computePaymentStatus(o)
+  const voucherCode = o.voucher_items?.[0]?.voucher?.voucher_code
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 9998, backdropFilter: 'blur(2px)' }}
-      />
-      {/* Panel */}
-      <div style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-        background: '#fff', borderRadius: 20, width: 520, maxWidth: '95vw', maxHeight: '90vh',
-        overflow: 'auto', zIndex: 9999, boxShadow: '0 24px 64px rgba(0,0,0,0.18)',
-        fontFamily: 'Outfit, sans-serif',
-      }}>
-        {/* Header */}
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>Chi tiết phụ phí</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{order.code}</div>
-          </div>
-          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: 6, cursor: 'pointer', display: 'flex' }}>
-            <X size={16} color="#64748b" />
-          </button>
-        </div>
-
-        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Driver info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', background: '#f8fafc', borderRadius: 12 }}>
-            {order.assigned_driver?.avatar_url
-              ? <img src={order.assigned_driver.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
-              : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#cffafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#0891b2' }}>{order.assigned_driver?.full_name?.[0] ?? '?'}</div>
-            }
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{order.assigned_driver?.full_name ?? '—'}</div>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>{order.assigned_driver?.phone ?? ''}</div>
-            </div>
-          </div>
-
-          {/* Order info */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 3 }}>Địa điểm giao</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{order.delivery_location?.name ?? '—'}</div>
-              <div style={{ fontSize: 11, color: '#64748b' }}>{order.delivery_location?.address ?? ''}</div>
-            </div>
-            <div style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10 }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 3 }}>Ngày giao</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{order.delivered_at ? fmtDate(order.delivered_at) : '—'}</div>
-            </div>
-          </div>
-
-          {/* Fee details */}
-          <div style={{ padding: '14px 16px', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: 11, color: '#92400e', marginBottom: 4, fontWeight: 600 }}>Phụ phí phát sinh</div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>{fmt(order.extra_fee ?? 0)}</div>
-              </div>
-              <FeeStatusBadge status={status} />
-            </div>
-            {order.extra_fee_note && (
-              <div style={{ marginTop: 10, fontSize: 13, color: '#78350f', fontStyle: 'italic' }}>
-                "{order.extra_fee_note}"
-              </div>
-            )}
-            {status === 'rejected' && order.extra_fee_rejected_reason && (
-              <div style={{ marginTop: 8, padding: '8px 12px', background: '#fee2e2', borderRadius: 8, fontSize: 12, color: '#991b1b' }}>
-                <strong>Lý do từ chối:</strong> {order.extra_fee_rejected_reason}
-              </div>
-            )}
-          </div>
-
-          {/* Delivery proof photo */}
-          {proofUrl ? (
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 8 }}>📷 Ảnh chứng minh / Bill</div>
-              <div
-                style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'zoom-in' }}
-                onClick={() => setImgZoomed(true)}
-              >
-                <img
-                  src={proofUrl}
-                  alt="Ảnh giao hàng"
-                  style={{ width: '100%', maxHeight: 280, objectFit: 'cover', display: 'block' }}
-                />
-                <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <ZoomIn size={12} color="#fff" />
-                  <span style={{ fontSize: 11, color: '#fff' }}>Xem rõ</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding: '16px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
-              📷 Chưa có ảnh chứng minh
-            </div>
+      <tr style={{ borderBottom: '1px solid #f8fafc' }}>
+        <td style={{ padding: '10px 14px', width: 36 }}>
+          {/* Checkbox only for approved-not-yet-vouchered */}
+          {payStatus === 'approved' && (
+            <input type="checkbox" checked={selected} onChange={onToggle}
+              style={{ width: 14, height: 14, cursor: 'pointer', accentColor: '#059669' }} />
           )}
-
-          {/* Action buttons — only for pending */}
-          {status === 'pending' && !showReject && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={onApprove}
-                disabled={isActing}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 10, background: '#059669', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', opacity: isActing ? 0.7 : 1 }}
-              >
-                {isActing ? '...' : '✓ Duyệt phụ phí'}
+        </td>
+        <td style={{ padding: '10px 8px' }}>
+          <div style={{ fontWeight: 700, fontSize: 12, color: '#0f172a', ...F }}>{o.code}</div>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>{o.delivery_location?.name ?? '—'}</div>
+          {o.extra_fee_note && <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic', marginTop: 2 }}>"{o.extra_fee_note}"</div>}
+          {status === 'rejected' && o.extra_fee_rejected_reason && (
+            <div style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>↳ {o.extra_fee_rejected_reason}</div>
+          )}
+        </td>
+        <td style={{ padding: '10px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            {o.assigned_driver?.avatar_url
+              ? <img src={o.assigned_driver.avatar_url} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover' }} />
+              : <div style={{ width: 26, height: 26, borderRadius: '50%', background: '#cffafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#0891b2' }}>{o.assigned_driver?.full_name?.[0] ?? '?'}</div>
+            }
+            <span style={{ fontSize: 12, color: '#475569', ...F }}>{o.assigned_driver?.full_name ?? '—'}</span>
+          </div>
+        </td>
+        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: status === 'rejected' ? '#9ca3af' : '#0f172a', textDecoration: status === 'rejected' ? 'line-through' : 'none', ...F }}>
+            {fmt(o.extra_fee ?? 0)}
+          </div>
+          {proofUrl && (
+            <button onClick={() => setShowProof(true)}
+              style={{ marginTop: 3, padding: '2px 8px', border: '1px solid #bae6fd', borderRadius: 6, background: '#f0f9ff', color: '#0369a1', fontSize: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, marginLeft: 'auto', ...F }}>
+              <ZoomIn size={10} /> Ảnh
+            </button>
+          )}
+        </td>
+        <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+          <PayStatusBadge payStatus={payStatus} />
+          {voucherCode && <div style={{ fontSize: 10, color: '#0891b2', marginTop: 3, ...F }}>{voucherCode}</div>}
+          {o.delivered_at && <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 2 }}>{fmtDate(o.delivered_at)}</div>}
+        </td>
+        <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+          {status === 'pending' && (
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+              <button onClick={onApprove} disabled={isActing}
+                style={{ padding: '4px 12px', borderRadius: 8, background: '#059669', color: '#fff', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', ...F, opacity: isActing ? 0.7 : 1 }}>
+                ✓ Duyệt
               </button>
-              <button
-                onClick={() => setShowReject(true)}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 10, background: '#fee2e2', color: '#991b1b', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}
-              >
+              <button onClick={() => setShowRejectForm(v => !v)}
+                style={{ padding: '4px 12px', borderRadius: 8, background: showRejectForm ? '#fee2e2' : '#f1f5f9', color: showRejectForm ? '#991b1b' : '#64748b', border: 'none', fontSize: 11, fontWeight: 700, cursor: 'pointer', ...F }}>
                 ✕ Từ chối
               </button>
             </div>
           )}
-
-          {/* Reject form */}
-          {showReject && (
-            <div style={{ background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 12, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', marginBottom: 8 }}>Lý do từ chối</div>
-              <textarea
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                placeholder="Nhập lý do từ chối phụ phí..."
-                rows={3}
-                style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #fecaca', fontSize: 13, fontFamily: 'Outfit, sans-serif', resize: 'vertical', boxSizing: 'border-box', background: '#fff' }}
-              />
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button
-                  onClick={() => setShowReject(false)}
-                  style={{ flex: 1, padding: 10, border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc', cursor: 'pointer', fontFamily: 'Outfit, sans-serif', fontSize: 13 }}
-                >
-                  Huỷ
-                </button>
-                <button
-                  onClick={() => { onReject(rejectReason); setShowReject(false) }}
-                  disabled={!rejectReason.trim() || isActing}
-                  style={{ flex: 1, padding: 10, border: 'none', borderRadius: 8, background: '#dc2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif', fontSize: 13, opacity: !rejectReason.trim() || isActing ? 0.6 : 1 }}
-                >
-                  Xác nhận từ chối
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Image zoom overlay */}
-      {imgZoomed && proofUrl && (
-        <div
-          onClick={() => setImgZoomed(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
-        >
-          <img
-            src={proofUrl}
-            alt="Ảnh giao hàng"
-            style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 12 }}
-          />
-          <button
-            onClick={() => setImgZoomed(false)}
-            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, padding: 8, cursor: 'pointer', display: 'flex' }}
-          >
-            <X size={20} color="#fff" />
-          </button>
-        </div>
+        </td>
+      </tr>
+      {showRejectForm && (
+        <tr>
+          <td colSpan={6} style={{ padding: 0 }}>
+            <InlineRejectForm onSubmit={r => { onReject(r); setShowRejectForm(false) }} onCancel={() => setShowRejectForm(false)} />
+          </td>
+        </tr>
       )}
+      {showProof && proofUrl && <ProofPhotoModal url={proofUrl} onClose={() => setShowProof(false)} />}
     </>
   )
 }
 
 // ── Main Page ──────────────────────────────────────────
+type FeeFilter = 'all' | 'pending' | 'approved' | 'approved_vouchered' | 'approved_paid' | 'rejected'
+
 export function AccountingPage() {
   const [tab, setTab] = useState<'fees' | 'vouchers'>('fees')
+  const [feeFilter, setFeeFilter] = useState<FeeFilter>('pending')
+  const [driverFilter, setDriverFilter] = useState<string>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expandedVoucher, setExpandedVoucher] = useState<string | null>(null)
-  const [feeFilter, setFeeFilter] = useState<'all'|'pending'|'approved'|'rejected'>('pending')
-  const [detailOrder, setDetailOrder] = useState<any | null>(null)
 
-  const { data: fees = [],     isLoading: feesLoading }    = usePendingFees()
+  const { data: fees = [], isLoading: feesLoading } = useFees()
   const { data: vouchers = [], isLoading: vouchersLoading } = useVouchers()
-  const { data: stats }                                     = useAccountingStats()
-  const approve      = useApproveFee()
-  const createVoucher = useCreateVoucher()
-  const markPaid     = useMarkPaid()
+  const approve = useApproveFee()
+  const createVouchers = useCreateVouchers()
+  const markPaid = useMarkPaid()
 
-  const filteredFees = feeFilter === 'all' ? fees : fees.filter(f => f.extra_fee_status === feeFilter)
-
-  // Count by status
-  const countByStatus = useMemo(() => ({
-    pending:  fees.filter(f => f.extra_fee_status === 'pending').length,
-    approved: fees.filter(f => f.extra_fee_status === 'approved').length,
-    rejected: fees.filter(f => f.extra_fee_status === 'rejected').length,
+  // Stats
+  const stats = useMemo(() => ({
+    pending:  fees.filter(o => o.extra_fee_status === 'pending').reduce((s: number, o: any) => s + (o.extra_fee ?? 0), 0),
+    approved: fees.filter(o => o.extra_fee_status === 'approved').reduce((s: number, o: any) => s + (o.extra_fee ?? 0), 0),
   }), [fees])
 
-  // Group selected orders by driver for voucher creation
+  // Counts per payment status
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { pending: 0, approved: 0, approved_vouchered: 0, approved_paid: 0, rejected: 0 }
+    for (const f of fees) { const ps = computePaymentStatus(f); c[ps] = (c[ps] ?? 0) + 1 }
+    return c
+  }, [fees])
+
+  // All unique drivers
+  const drivers = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const o of fees) {
+      if (o.assigned_driver?.id) seen.set(o.assigned_driver.id, o.assigned_driver.full_name ?? '—')
+    }
+    return Array.from(seen.entries())
+  }, [fees])
+
+  // Filtered fees
+  const filteredFees = useMemo(() => {
+    let list = feeFilter === 'all' ? fees : fees.filter(f => computePaymentStatus(f) === feeFilter)
+    if (driverFilter !== 'all') list = list.filter(f => f.assigned_driver?.id === driverFilter)
+    return list
+  }, [fees, feeFilter, driverFilter])
+
+  // Selection logic
   const selectedOrders = fees.filter(f => selected.has(f.id))
-  const selectedGroups = useMemo(() => {
-    const m = new Map<string, string[]>()
-    for (const o of selectedOrders) {
-      const drv = o.assigned_driver?.id
-      if (!drv) continue
-      if (!m.has(drv)) m.set(drv, [])
-      m.get(drv)!.push(o.id)
-    }
-    return m
-  }, [selectedOrders])
+  const hasNonApproved = selectedOrders.some(o => computePaymentStatus(o) !== 'approved')
+  const selectedDriverCount = useMemo(() => new Set(selectedOrders.map(o => o.assigned_driver?.id).filter(Boolean)).size, [selectedOrders])
+  const toggleSelect = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const hasPendingInSelection = selectedOrders.some(o => o.extra_fee_status === 'pending')
-
-  const handleCreateVouchers = async () => {
-    for (const [driverId, orderIds] of selectedGroups) {
-      await createVoucher.mutateAsync({ driverId, orderIds })
-    }
-    setSelected(new Set())
-  }
-
-  const toggleSelect = (id: string) => {
-    setSelected(prev => {
-      const n = new Set(prev)
-      n.has(id) ? n.delete(id) : n.add(id)
-      return n
-    })
-  }
+  const filterChips: { key: FeeFilter; label: string }[] = [
+    { key: 'all',               label: `Tất cả (${fees.length})` },
+    { key: 'pending',           label: `⏳ Chờ duyệt (${counts.pending})` },
+    { key: 'approved',          label: `✅ Đã duyệt (${counts.approved})` },
+    { key: 'approved_vouchered',label: `📋 Trong CT (${counts.approved_vouchered})` },
+    { key: 'approved_paid',     label: `💵 Đã chi (${counts.approved_paid})` },
+    { key: 'rejected',          label: `❌ Từ chối (${counts.rejected})` },
+  ]
 
   return (
-    <div style={{ fontFamily: 'Outfit, sans-serif', maxWidth: 960 }}>
+    <div style={{ ...F, maxWidth: 1020 }}>
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #059669, #047857)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Receipt size={18} color="#fff" />
-          </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>Kế toán & Phụ phí</h1>
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#059669,#047857)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Receipt size={18} color="#fff" />
         </div>
-        <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4, marginLeft: 46 }}>Dành cho kế toán và quản lý</p>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: 0 }}>Kế toán & Phụ phí</h1>
+          <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>Duyệt phụ phí và tạo chứng từ chi trả</p>
+        </div>
       </div>
 
-      {/* Summary */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
-        <SummaryCard icon={<Clock size={18} color="#d97706" />} label="Chờ duyệt" value={fmt(stats?.pending ?? 0)} color="#d97706" />
-        <SummaryCard icon={<CheckCircle size={18} color="#059669" />} label="Đã duyệt chưa chi" value={fmt(stats?.approved ?? 0)} color="#059669" />
-        <SummaryCard icon={<DollarSign size={18} color="#0891b2" />} label="Chi trả tháng này" value={fmt(stats?.paidThisMonth ?? 0)} color="#0891b2" />
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        {[
+          { icon: <Clock size={16} color="#d97706" />, label: 'Chờ duyệt', value: fmt(stats.pending), color: '#d97706' },
+          { icon: <CheckCircle size={16} color="#059669" />, label: 'Đã duyệt chưa chi', value: fmt(stats.approved), color: '#059669' },
+          { icon: <DollarSign size={16} color="#0891b2" />, label: 'Phụ phí tổng', value: fmt(fees.reduce((s: number, o: any) => s + (o.extra_fee ?? 0), 0)), color: '#0891b2' },
+        ].map(s => (
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid #e2e8f0', display: 'flex', gap: 10, alignItems: 'center', flex: '1 1 140px' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.icon}</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>{s.label}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', background: '#f8fafc' }}>
-        {(['fees','vouchers'] as const).map(t => {
-          const labels = { fees: 'Phụ phí chờ duyệt', vouchers: 'Chứng từ chi trả' }
-          return (
-            <button key={t} onClick={() => setTab(t)} style={{
-              flex: 1, padding: '11px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              border: 'none', fontFamily: 'Outfit, sans-serif',
-              background: tab === t ? '#fff' : 'transparent',
-              color: tab === t ? '#059669' : '#94a3b8',
-              borderBottom: tab === t ? '2px solid #059669' : '2px solid transparent',
-            }}>{labels[t]}</button>
-          )
-        })}
+      {/* Main tabs */}
+      <div style={{ display: 'flex', marginBottom: 18, border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', background: '#f8fafc' }}>
+        {(['fees', 'vouchers'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '10px 0', fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none', ...F, background: tab === t ? '#fff' : 'transparent', color: tab === t ? '#059669' : '#94a3b8', borderBottom: tab === t ? '2px solid #059669' : '2px solid transparent' }}>
+            {{ fees: 'Danh sách phụ phí', vouchers: 'Chứng từ chi trả' }[t]}
+          </button>
+        ))}
       </div>
 
       {/* ── TAB 1: Fees ── */}
       {tab === 'fees' && (
         <div>
-          {/* Filter chips */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-            {(['all','pending','approved','rejected'] as const).map(f => {
-              const count = f === 'all' ? fees.length : countByStatus[f] ?? 0
-              return (
-                <button key={f} onClick={() => setFeeFilter(f)} style={{
-                  padding: '5px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                  border: feeFilter === f ? 'none' : '1px solid #e2e8f0',
-                  background: feeFilter === f ? '#059669' : '#fff',
-                  color: feeFilter === f ? '#fff' : '#64748b',
-                  fontFamily: 'Outfit, sans-serif',
-                }}>
-                  {{ all: 'Tất cả', pending: '⏳ Chờ', approved: '✅ Duyệt', rejected: '❌ Từ chối' }[f]} ({count})
+            {/* Filter chips */}
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {filterChips.map(({ key, label }) => (
+                <button key={key} onClick={() => setFeeFilter(key)}
+                  style={{ padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: feeFilter === key ? 'none' : '1px solid #e2e8f0', background: feeFilter === key ? '#059669' : '#fff', color: feeFilter === key ? '#fff' : '#64748b', ...F }}>
+                  {label}
                 </button>
-              )
-            })}
+              ))}
+            </div>
 
-            {/* Bulk create voucher */}
+            {/* Driver filter */}
+            <select value={driverFilter} onChange={e => setDriverFilter(e.target.value)}
+              style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', ...F, background: '#fff', cursor: 'pointer' }}>
+              <option value="all">— Tất cả giao nhận —</option>
+              {drivers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            </select>
+
+            {/* Voucher create action */}
             {selected.size > 0 && (
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                {hasPendingInSelection && (
-                  <span style={{ fontSize: 11, color: '#d97706' }}>⚠️ Có đơn chưa duyệt trong chọn</span>
-                )}
-                <button
-                  onClick={handleCreateVouchers}
-                  disabled={createVoucher.isPending || hasPendingInSelection}
-                  style={{ padding: '6px 16px', borderRadius: 10, background: hasPendingInSelection ? '#94a3b8' : '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: hasPendingInSelection ? 'not-allowed' : 'pointer', fontFamily: 'Outfit, sans-serif' }}
-                >
-                  {createVoucher.isPending ? 'Đang tạo...' : `Gộp ${selected.size} đơn → Chứng từ`}
+                {hasNonApproved && <span style={{ fontSize: 11, color: '#d97706' }}>⚠️ Bỏ chọn đơn đã trong chứng từ</span>}
+                <button onClick={() => createVouchers.mutate({ selectedIds: selected, fees })}
+                  disabled={createVouchers.isPending || hasNonApproved}
+                  style={{ padding: '6px 14px', borderRadius: 10, background: hasNonApproved ? '#94a3b8' : '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: hasNonApproved ? 'not-allowed' : 'pointer', ...F }}>
+                  {createVouchers.isPending
+                    ? 'Đang tạo...'
+                    : `Tạo ${selectedDriverCount > 1 ? selectedDriverCount + ' chứng từ' : 'chứng từ'} (${selected.size} đơn)`}
                 </button>
               </div>
             )}
           </div>
 
           {feesLoading ? (
-            <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8' }}>Đang tải...</div>
+            <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', ...F }}>Đang tải...</div>
           ) : filteredFees.length === 0 ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
-              <DollarSign size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
-              <p>Không có phụ phí nào</p>
+            <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8', ...F }}>
+              <DollarSign size={40} style={{ opacity: 0.2, display: 'block', margin: '0 auto 12px' }} />Không có phụ phí nào
             </div>
           ) : (
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -510,66 +430,28 @@ export function AccountingPage() {
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                     <th style={{ padding: '10px 14px', width: 36 }}></th>
-                    <th style={{ padding: '10px 8px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>Mã đơn / Địa điểm</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>Tài xế</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>Số tiền</th>
-                    <th style={{ padding: '10px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>Trạng thái</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>Thao tác</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 11, ...F }}>Mã đơn / Địa điểm</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, fontSize: 11, ...F }}>Giao nhận</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, fontSize: 11, ...F }}>Số tiền</th>
+                    <th style={{ padding: '10px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11, ...F }}>Trạng thái</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, fontSize: 11, ...F }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredFees.map((o: any) => (
-                    <tr
-                      key={o.id}
-                      style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', transition: 'background 0.12s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      onClick={() => setDetailOrder(o)}
-                    >
-                      <td style={{ padding: '10px 14px' }} onClick={e => e.stopPropagation()}>
-                        {o.extra_fee_status === 'approved' && (
-                          <input type="checkbox" checked={selected.has(o.id)} onChange={() => toggleSelect(o.id)}
-                            style={{ width: 14, height: 14, cursor: 'pointer' }} />
-                        )}
-                      </td>
-                      <td style={{ padding: '10px 8px' }}>
-                        <div style={{ fontWeight: 700, fontSize: 12, color: '#0f172a' }}>{o.code}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{o.delivery_location?.name ?? '—'}</div>
-                        {o.extra_fee_note && <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>"{o.extra_fee_note}"</div>}
-                      </td>
-                      <td style={{ padding: '10px 8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {o.assigned_driver?.avatar_url
-                            ? <img src={o.assigned_driver.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
-                            : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#cffafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#0891b2' }}>{o.assigned_driver?.full_name?.[0] ?? '?'}</div>
-                          }
-                          <span style={{ fontSize: 12, color: '#475569' }}>{o.assigned_driver?.full_name ?? '—'}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: (o.extra_fee ?? 0) > 100000 ? '#dc2626' : '#0f172a' }}>
-                        {fmt(o.extra_fee ?? 0)}
-                        {(o.delivery_proof_url || o.proof_photo_url) && (
-                          <div style={{ fontSize: 10, color: '#0891b2', marginTop: 2 }}>📷 có ảnh</div>
-                        )}
-                      </td>
-                      <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                        <FeeStatusBadge status={o.extra_fee_status} />
-                        {o.extra_fee_rejected_reason && (
-                          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.extra_fee_rejected_reason}</div>
-                        )}
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <button
-                          onClick={e => { e.stopPropagation(); setDetailOrder(o) }}
-                          style={{ padding: '4px 12px', borderRadius: 8, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif' }}
-                        >
-                          Xem chi tiết
-                        </button>
-                      </td>
-                    </tr>
+                  {filteredFees.map(o => (
+                    <FeeRow key={o.id} o={o} selected={selected.has(o.id)} onToggle={() => toggleSelect(o.id)}
+                      onApprove={() => approve.mutate({ orderId: o.id, approve: true })}
+                      onReject={r => approve.mutate({ orderId: o.id, approve: false, reason: r })}
+                      isActing={approve.isPending} />
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {createVouchers.isError && (
+            <div style={{ marginTop: 10, padding: '10px 14px', background: '#fee2e2', borderRadius: 10, fontSize: 12, color: '#991b1b', ...F }}>
+              ❌ {(createVouchers.error as Error)?.message}
             </div>
           )}
         </div>
@@ -579,68 +461,59 @@ export function AccountingPage() {
       {tab === 'vouchers' && (
         <div>
           {vouchersLoading ? (
-            <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8' }}>Đang tải...</div>
+            <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', ...F }}>Đang tải...</div>
           ) : vouchers.length === 0 ? (
-            <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>
-              <Receipt size={40} style={{ opacity: 0.2, marginBottom: 12 }} />
-              <p>Chưa có chứng từ nào</p>
+            <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8', ...F }}>
+              <Receipt size={40} style={{ opacity: 0.2, display: 'block', margin: '0 auto 12px' }} />Chưa có chứng từ nào
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {vouchers.map(v => (
-                <div key={v.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
-                    onClick={() => setExpandedVoucher(expandedVoucher === v.id ? null : v.id)}>
-                    {/* Driver */}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{v.driver?.full_name ?? '—'}</span>
-                        <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{v.voucher_code}</span>
+              {vouchers.map((v: any) => {
+                const isExp = expandedVoucher === v.id
+                const items: any[] = v.items ?? []
+                return (
+                  <div key={v.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                      onClick={() => setExpandedVoucher(isExp ? null : v.id)}>
+                      <div>
+                        {v.driver?.avatar_url
+                          ? <img src={v.driver.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
+                          : <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#cffafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#0891b2' }}>{v.driver?.full_name?.[0] ?? '?'}</div>}
                       </div>
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{fmtDate(v.created_at)} · {(v.items ?? []).length} đơn</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', ...F }}>{v.driver?.full_name ?? '—'}</span>
+                          <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{v.voucher_code}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, ...F }}>{fmtDate(v.created_at)} · {items.length} đơn</div>
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#059669', ...F }}>{fmt(v.total_amount)}</div>
+                      <VoucherStatusBadge status={v.status} />
+                      {v.status === 'pending' && (
+                        <button onClick={e => { e.stopPropagation(); markPaid.mutate(v.id) }}
+                          style={{ padding: '5px 12px', borderRadius: 8, background: '#0891b2', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer', ...F }}>
+                          Đã chi trả
+                        </button>
+                      )}
+                      {isExp ? <ChevronUp size={16} color="#94a3b8" /> : <ChevronDown size={16} color="#94a3b8" />}
                     </div>
-                    <div style={{ fontWeight: 700, fontSize: 16, color: '#059669' }}>{fmt(v.total_amount)}</div>
-                    <VoucherStatusBadge status={v.status} />
-                    {v.status === 'pending' && (
-                      <button onClick={(e) => { e.stopPropagation(); markPaid.mutate(v.id) }} style={{
-                        padding: '6px 14px', borderRadius: 8, background: '#0891b2', color: '#fff', border: 'none',
-                        fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
-                      }}>Đã chi trả</button>
+                    {isExp && (
+                      <div style={{ borderTop: '1px solid #f1f5f9', padding: '8px 18px 12px' }}>
+                        {items.map((item: any) => (
+                          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #f8fafc' }}>
+                            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b' }}>{item.order?.code}</span>
+                            <span style={{ fontSize: 11, color: '#94a3b8', flex: 1 }}>{item.order?.delivery_location?.name}</span>
+                            <span style={{ fontWeight: 700, fontSize: 12, color: '#0f172a', ...F }}>{fmt(item.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  {expandedVoucher === v.id && (v.items ?? []).length > 0 && (
-                    <div style={{ borderTop: '1px solid #f1f5f9', padding: '10px 18px 14px' }}>
-                      {(v.items ?? []).map((item: any) => (
-                        <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f8fafc' }}>
-                          <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#64748b' }}>{(item.order as any)?.code}</span>
-                          <span style={{ fontSize: 11, color: '#94a3b8', flex: 1 }}>{(item.order as any)?.delivery_location?.name}</span>
-                          <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{fmt(item.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>
-      )}
-
-      {/* Detail Modal */}
-      {detailOrder && (
-        <FeeDetailModal
-          order={detailOrder}
-          onClose={() => setDetailOrder(null)}
-          onApprove={() => {
-            approve.mutate({ orderId: detailOrder.id, approve: true })
-            setDetailOrder(null)
-          }}
-          onReject={(reason) => {
-            approve.mutate({ orderId: detailOrder.id, approve: false, reason })
-            setDetailOrder(null)
-          }}
-          isActing={approve.isPending}
-        />
       )}
     </div>
   )

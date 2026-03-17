@@ -122,7 +122,11 @@ class _ExtraFeesTabState extends State<_ExtraFeesTab>
           .select('''
             id, code, extra_fee, extra_fee_note, extra_fee_status,
             extra_fee_rejected_reason, delivered_at, delivery_proof_url,
-            delivery_location:locations!orders_delivery_location_id_fkey(id, name)
+            delivery_location:locations!orders_delivery_location_id_fkey(id, name),
+            voucher_items:payment_voucher_items(
+              id,
+              voucher:payment_vouchers(id, voucher_code, status)
+            )
           ''')
           .eq('assigned_to', uid)
           .gt('extra_fee', 0)
@@ -139,17 +143,44 @@ class _ExtraFeesTabState extends State<_ExtraFeesTab>
     }
   }
 
-  List<Map<String, dynamic>> _filtered(String status) =>
-      _orders.where((o) => o['extra_fee_status'] == status).toList();
+  // 5 payment states: pending | approved | approved_vouchered | approved_paid | rejected
+  static String _paymentStatus(Map<String, dynamic> o) {
+    final base = o['extra_fee_status'] as String? ?? 'pending';
+    if (base == 'rejected') return 'rejected';
+    if (base != 'approved') return base;
+    final items = o['voucher_items'] as List? ?? [];
+    if (items.isEmpty) return 'approved';
+    final voucher = (items.first as Map?)?['voucher'] as Map?;
+    if (voucher == null) return 'approved';
+    final vs = voucher['status'] as String? ?? '';
+    if (vs == 'paid' || vs == 'confirmed') return 'approved_paid';
+    return 'approved_vouchered';
+  }
+
+  List<Map<String, dynamic>> _filtered(String status) {
+    switch (status) {
+      case 'approved':
+        // Show all approved sub-states in the approved tab
+        return _orders.where((o) {
+          final ps = _paymentStatus(o);
+          return ps == 'approved' || ps == 'approved_vouchered' || ps == 'approved_paid';
+        }).toList();
+      default:
+        return _orders.where((o) => o['extra_fee_status'] == status).toList();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
 
     final counts = {
-      'pending':  _filtered('pending').length,
-      'approved': _filtered('approved').length,
-      'rejected': _filtered('rejected').length,
+      'pending':  _orders.where((o) => o['extra_fee_status'] == 'pending').length,
+      'approved': _orders.where((o) {
+        final ps = _paymentStatus(o);
+        return ps == 'approved' || ps == 'approved_vouchered' || ps == 'approved_paid';
+      }).length,
+      'rejected': _orders.where((o) => o['extra_fee_status'] == 'rejected').length,
     };
 
     return Column(
@@ -226,43 +257,43 @@ class _FeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fee      = order['extra_fee'] as int? ?? 0;
-    final note     = order['extra_fee_note'] as String?;
-    final rejected = order['extra_fee_rejected_reason'] as String?;
-    final loc      = (order['delivery_location'] as Map?)  ?? {};
-    final proofUrl = order['delivery_proof_url'] as String?;
-    final delivAt  = order['delivered_at'] as String?;
+    final fee       = order['extra_fee'] as int? ?? 0;
+    final note      = order['extra_fee_note'] as String?;
+    final rejected  = order['extra_fee_rejected_reason'] as String?;
+    final loc       = (order['delivery_location'] as Map?)  ?? {};
+    final proofUrl  = order['delivery_proof_url'] as String?;
+    final delivAt   = order['delivered_at'] as String?;
+    final payStatus = _ExtraFeesTabState._paymentStatus(order);
+    final items = order['voucher_items'] as List? ?? [];
+    final voucherCode = items.isNotEmpty ? (items.first as Map?)?['voucher']?['voucher_code'] as String? : null;
 
     Color amountColor;
     Color cardBorder;
-    Widget? statusExtra;
+    Widget statusBadge;
 
-    switch (status) {
+    switch (payStatus) {
       case 'approved':
         amountColor = const Color(0xFF059669);
         cardBorder  = const Color(0xFF86EFAC);
-        statusExtra = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(20)),
-          child: Text('✅ Đã duyệt', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF166534))),
-        );
+        statusBadge = _statusChip('✅ Đã duyệt', const Color(0xFFDCFCE7), const Color(0xFF166534));
+      case 'approved_vouchered':
+        amountColor = const Color(0xFF0369A1);
+        cardBorder  = const Color(0xFFBAE6FD);
+        statusBadge = _statusChip('📋 Trong chứng từ', const Color(0xFFE0F2FE), const Color(0xFF0369A1));
+      case 'approved_paid':
+        amountColor = const Color(0xFF15803D);
+        cardBorder  = const Color(0xFF4ADE80);
+        statusBadge = _statusChip('💵 Đã chi trả', const Color(0xFFF0FDF4), const Color(0xFF15803D));
       case 'rejected':
         amountColor = const Color(0xFF9CA3AF);
         cardBorder  = const Color(0xFFFCA5A5);
-        statusExtra = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(20)),
-          child: Text('❌ Từ chối', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF991B1B))),
-        );
+        statusBadge = _statusChip('❌ Từ chối', const Color(0xFFFEE2E2), const Color(0xFF991B1B));
       default: // pending
         amountColor = const Color(0xFFD97706);
         cardBorder  = const Color(0xFFFDE68A);
-        statusExtra = Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: const Color(0xFFFEF9C3), borderRadius: BorderRadius.circular(20)),
-          child: Text('⏳ Chờ duyệt', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF92400E))),
-        );
+        statusBadge = _statusChip('⏳ Chờ duyệt', const Color(0xFFFEF9C3), const Color(0xFF92400E));
     }
+
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -292,15 +323,16 @@ class _FeeCard extends StatelessWidget {
               ),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 // Amount — strikethrough if rejected
-                if (status == 'rejected')
-                  Text('${_fmt.format(fee)} ₫',
-                      style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800,
-                          color: amountColor, decoration: TextDecoration.lineThrough))
-                else
-                  Text('${_fmt.format(fee)} ₫',
-                      style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: amountColor)),
+                Text('${_fmt.format(fee)} ₫',
+                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800,
+                        color: amountColor,
+                        decoration: payStatus == 'rejected' ? TextDecoration.lineThrough : null)),
                 const SizedBox(height: 4),
-                if (statusExtra != null) statusExtra,
+                statusBadge,
+                if (voucherCode != null) ...[
+                  const SizedBox(height: 3),
+                  Text(voucherCode, style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF0369A1))),
+                ],
               ]),
             ]),
 
@@ -316,7 +348,7 @@ class _FeeCard extends StatelessWidget {
             ],
 
             // Rejected reason
-            if (status == 'rejected' && rejected != null && rejected.isNotEmpty) ...[
+            if (payStatus == 'rejected' && rejected != null && rejected.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -358,33 +390,67 @@ class _FeeCard extends StatelessWidget {
     );
   }
 
+  Widget _statusChip(String label, Color bg, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+    child: Text(label, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+  );
+
   void _showProofPhoto(BuildContext context, String url) {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: Stack(children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.network(url, fit: BoxFit.contain),
-          ),
-          Positioned(
-            top: 8, right: 8,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 32, height: 32,
-                decoration: BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close_rounded, size: 18, color: Colors.white),
-              ),
+    // Push a full screen page instead of Dialog to avoid UI freeze
+    Navigator.of(context).push(MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => _ProofPhotoPage(url: url),
+    ));
+  }
+}
+
+// ─── Full-Screen Proof Photo Viewer ───────────────────
+class _ProofPhotoPage extends StatelessWidget {
+  final String url;
+  const _ProofPhotoPage({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Ảnh chứng minh', style: TextStyle(color: Colors.white, fontSize: 14)),
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: InteractiveViewer(
+        minScale: 0.5,
+        maxScale: 4.0,
+        child: Center(
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            loadingBuilder: (ctx, child, progress) {
+              if (progress == null) return child;
+              final pct = progress.expectedTotalBytes != null
+                  ? (progress.cumulativeBytesLoaded / progress.expectedTotalBytes!)
+                  : null;
+              return Center(child: CircularProgressIndicator(value: pct, color: Colors.white));
+            },
+            errorBuilder: (_, __, ___) => const Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.broken_image_rounded, size: 48, color: Colors.white54),
+                SizedBox(height: 12),
+                Text('Không tải được ảnh', style: TextStyle(color: Colors.white54, fontSize: 13)),
+              ]),
             ),
           ),
-        ]),
+        ),
       ),
     );
   }
 }
+
 
 // ─── Tab 2: Chứng từ chi trả ──────────────────────────
 class _VouchersTab extends StatefulWidget {
