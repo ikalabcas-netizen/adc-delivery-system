@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'shift_service.dart';
@@ -102,6 +103,81 @@ class _ShiftScreenState extends State<ShiftScreen> {
   }
 
   Future<void> _endShift() async {
+    // Step 0: Check for unfinished trips
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid != null) {
+      final activeTrips = await Supabase.instance.client
+          .from('trips')
+          .select('id')
+          .eq('driver_id', uid)
+          .eq('status', 'active')
+          .limit(1);
+      if (!mounted) return;
+      if ((activeTrips as List).isNotEmpty) {
+        final choice = await showDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            icon: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 32),
+            ),
+            title: const Text(
+              'Còn chuyến đi chưa hoàn thành',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            ),
+            content: const Text(
+              'Bạn đang có chuyến đi chưa hoàn thành. Nên hoàn thành chuyến trước khi ra ca.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.5),
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            actions: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pop(_, 'go_trip'),
+                  icon: const Icon(Icons.local_shipping_rounded),
+                  label: const Text('Hoàn thành chuyến'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0891B2),
+                    side: const BorderSide(color: Color(0xFF0891B2)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(_, 'continue'),
+                  child: const Text(
+                    'Vẫn tiếp tục ra ca',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (choice == 'go_trip') {
+          // Navigate to trips tab
+          if (mounted) context.go('/trips');
+          return;
+        }
+        // choice == 'continue' → proceed to end shift
+      }
+    }
+
     // Step 1: Odometer capture for check-out
     final kmIn = _activeShift?['km_in'] as int?;
     final result = await Navigator.of(context).push<OdometerResult>(

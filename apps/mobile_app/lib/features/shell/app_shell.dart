@@ -94,7 +94,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final tabIndex = _tabIndex(context);
 
     // If off-shift and accessing orders/trips → show gate overlay
-    final bool locked = !_isOnShift && tabIndex != 0;
+    // Costs tab (index 3) is always accessible without a shift
+    final bool locked = !_isOnShift && tabIndex != 0 && tabIndex != 3;
 
     return Scaffold(
       body: Stack(

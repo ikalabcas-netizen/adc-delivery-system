@@ -1,6 +1,9 @@
 // ─── Geocoding Service ───────────────────────────────────
-// Combines Nominatim (OSM, primary) + Mapbox Search Box (fallback)
-// for accurate Vietnamese address geocoding with result selection
+// Primary: Google Maps Places Autocomplete API (most accurate for VN)
+// Fallback: Nominatim (OSM, free, no key) if Google key not configured
+//
+// Google Maps free tier: $200/month credit = ~40,000 geocode requests free
+// At a few hundred addresses/month → completely free forever
 
 export interface GeocodingResult {
   id:         string
@@ -8,20 +11,77 @@ export interface GeocodingResult {
   address:    string
   lat:        number
   lng:        number
-  source:     'nominatim' | 'mapbox'
+  source:     'google' | 'nominatim'
 }
 
-// ── HCM area defaults ──
-const HCM_CENTER = { lng: 106.6297, lat: 10.8231 }
-const HCM_BBOX   = '106.3,10.5,107.0,11.1'
+// ── HCM area focus ──
+const HCM_LOCATION = '10.8231,106.6297'   // lat,lng for Google bias
+const HCM_RADIUS   = 50000                  // 50km radius bias
 
-// ── Nominatim (free, no key needed) ──────────────────────
+// ── Google Maps Places Autocomplete + Place Details ────────
+// Uses the newer Places API (New) — no session token billing complexity
+async function searchGoogle(query: string): Promise<GeocodingResult[]> {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+  if (!apiKey) return []
+
+  try {
+    // Autocomplete to get place IDs
+    const acRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
+      `?input=${encodeURIComponent(query)}` +
+      `&key=${apiKey}` +
+      `&language=vi` +
+      `&components=country:vn` +
+      `&location=${HCM_LOCATION}` +
+      `&radius=${HCM_RADIUS}` +
+      `&types=geocode|establishment`,
+      { headers: { 'Accept': 'application/json' } }
+    )
+    if (!acRes.ok) return []
+    const acData = await acRes.json()
+    const predictions = acData.predictions ?? []
+    if (predictions.length === 0) return []
+
+    // Get coordinates for each prediction via Place Details
+    const results: GeocodingResult[] = []
+    for (const p of predictions.slice(0, 5)) {
+      try {
+        const detailRes = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json` +
+          `?place_id=${p.place_id}` +
+          `&fields=geometry,name,formatted_address` +
+          `&key=${apiKey}` +
+          `&language=vi`
+        )
+        if (!detailRes.ok) continue
+        const detailData = await detailRes.json()
+        const loc = detailData.result?.geometry?.location
+        if (!loc) continue
+        results.push({
+          id:      `gm-${p.place_id}`,
+          name:    p.structured_formatting?.main_text || detailData.result?.name || p.description,
+          address: p.description || detailData.result?.formatted_address || '',
+          lat:     loc.lat,
+          lng:     loc.lng,
+          source:  'google' as const,
+        })
+      } catch {
+        continue
+      }
+    }
+    return results
+  } catch {
+    return []
+  }
+}
+
+// ── Nominatim fallback (free, no key) ────────────────────
 async function searchNominatim(query: string): Promise<GeocodingResult[]> {
   try {
-    const q = encodeURIComponent(query.trim())
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search` +
-      `?q=${q}&format=jsonv2&countrycodes=VN` +
+      `?q=${encodeURIComponent(query.trim())}` +
+      `&format=jsonv2&countrycodes=VN` +
       `&viewbox=106.3,11.1,107.0,10.5&bounded=1` +
       `&addressdetails=1&limit=5&accept-language=vi`,
       { headers: { 'User-Agent': 'ADC-Delivery-System/1.0' } }
@@ -41,86 +101,17 @@ async function searchNominatim(query: string): Promise<GeocodingResult[]> {
   }
 }
 
-// ── Mapbox Search Box v1 (suggest + retrieve) ────────────
-async function searchMapbox(query: string): Promise<GeocodingResult[]> {
-  try {
-    const token = import.meta.env.VITE_MAPBOX_TOKEN
-    if (!token) return []
-
-    const sessionToken = crypto.randomUUID()
-    const q = encodeURIComponent(query.trim())
-    const suggestRes = await fetch(
-      `https://api.mapbox.com/search/searchbox/v1/suggest` +
-      `?q=${q}&access_token=${token}` +
-      `&session_token=${sessionToken}` +
-      `&country=VN&language=vi&limit=5` +
-      `&proximity=${HCM_CENTER.lng},${HCM_CENTER.lat}` +
-      `&bbox=${HCM_BBOX}` +
-      `&types=address,poi,street`
-    )
-    if (!suggestRes.ok) return []
-    const suggestData = await suggestRes.json()
-    const suggestions = suggestData.suggestions ?? []
-    if (suggestions.length === 0) return []
-
-    // Retrieve coordinates for each suggestion
-    const results: GeocodingResult[] = []
-    for (const s of suggestions.slice(0, 5)) {
-      if (!s.mapbox_id) continue
-      try {
-        const retrieveRes = await fetch(
-          `https://api.mapbox.com/search/searchbox/v1/retrieve/${s.mapbox_id}` +
-          `?access_token=${token}&session_token=${sessionToken}`
-        )
-        if (!retrieveRes.ok) continue
-        const retrieveData = await retrieveRes.json()
-        const feature = retrieveData.features?.[0]
-        if (!feature?.geometry?.coordinates) continue
-        const [lng, lat] = feature.geometry.coordinates
-        results.push({
-          id:      `mb-${s.mapbox_id}`,
-          name:    s.name || s.full_address || '',
-          address: s.full_address || s.place_formatted || s.name || '',
-          lat,
-          lng,
-          source:  'mapbox' as const,
-        })
-      } catch {
-        continue
-      }
-    }
-    return results
-  } catch {
-    return []
-  }
-}
-
 // ── Combined geocoding ───────────────────────────────────
-// Strategy: Nominatim first (free), Mapbox fallback if < 3 results
-// Merge + deduplicate by proximity (< 100m = same place)
+// Strategy: Google Maps (accurate) → Nominatim fallback if no Google key
 export async function geocodeAddress(query: string): Promise<GeocodingResult[]> {
   if (!query.trim()) return []
 
-  const nomResults = await searchNominatim(query)
-
-  // If Nominatim returns enough results, use them
-  if (nomResults.length >= 3) {
-    return nomResults.slice(0, 5)
+  const googleKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+  if (googleKey) {
+    const googleResults = await searchGoogle(query)
+    if (googleResults.length > 0) return googleResults
   }
 
-  // Otherwise, also fetch from Mapbox
-  const mbResults = await searchMapbox(query)
-
-  // Merge: Nominatim first, then Mapbox (deduped)
-  const merged = [...nomResults]
-  for (const mb of mbResults) {
-    const isDupe = merged.some(existing => {
-      const dlat = Math.abs(existing.lat - mb.lat)
-      const dlng = Math.abs(existing.lng - mb.lng)
-      return dlat < 0.001 && dlng < 0.001 // ~100m proximity
-    })
-    if (!isDupe) merged.push(mb)
-  }
-
-  return merged.slice(0, 5)
+  // Fallback to Nominatim
+  return searchNominatim(query)
 }
