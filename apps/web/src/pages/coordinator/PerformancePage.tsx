@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TrendingUp, Truck, Users, CheckCircle, Clock, BarChart3, ChevronUp, ChevronDown } from 'lucide-react'
+import { TrendingUp, Truck, Users, CheckCircle, Clock, BarChart3, ChevronUp, ChevronDown, Navigation } from 'lucide-react'
 import { useSystemStats, useDriverPerformance, useDailyTrend, DriverStat } from '@/hooks/usePerformance'
 
 // ─── Live status badge ────────────────────────────────
@@ -132,6 +132,9 @@ function DriverRow({ stat, rank }: { stat: DriverStat; rank: number }) {
           color:      stat.successRate >= 80 ? '#059669' : stat.successRate >= 50 ? '#d97706' : '#e11d48',
         }}>{stat.successRate}%</span>
       </td>
+      <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 600, color: stat.totalOptimizedKm > 0 ? '#0891b2' : '#cbd5e1' }}>
+        {stat.totalOptimizedKm > 0 ? `${stat.totalOptimizedKm} km` : '—'}
+      </td>
     </tr>
   )
 }
@@ -188,6 +191,9 @@ export function PerformancePage() {
             <KpiCard icon={<CheckCircle size={18} color="#059669" />} label="Đã giao" value={sys.delivered} sub={`Tỉ lệ ${sys.successRate}%`} color="#059669" />
             <KpiCard icon={<Truck size={18} color="#7c3aed" />} label="Chuyến đang giao" value={sys.activeTrips} color="#7c3aed" />
             <KpiCard icon={<Users size={18} color="#0891b2" />} label="GN đang ca" value={sys.driversOnShift} color="#0891b2" />
+            {sys.totalOptimizedKm > 0 && (
+              <KpiCard icon={<Navigation size={18} color="#0d9488" />} label="KM tối ưu hôm nay" value={`${sys.totalOptimizedKm}`} sub="km" color="#0d9488" />
+            )}
             {sys.avgTripMinutes != null && (
               <KpiCard icon={<Clock size={18} color="#d97706" />} label="Thời gian TB/chuyến" value={sys.avgTripMinutes < 60 ? `${sys.avgTripMinutes} ph` : `${Math.floor(sys.avgTripMinutes/60)}h${sys.avgTripMinutes%60}ph`} color="#d97706" />
             )}
@@ -252,11 +258,12 @@ export function PerformancePage() {
                   <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600, fontSize: 11, textAlign: 'center' }}>
                     <SortBtn col="successRate" label="Tỉ lệ HT" />
                   </th>
+                  <th style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600, fontSize: 11, textAlign: 'center' }}>KM tối ưu</th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.length === 0 ? (
-                  <tr><td colSpan={5} style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Không có dữ liệu</td></tr>
+                  <tr><td colSpan={6} style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Không có dữ liệu</td></tr>
                 ) : (
                   sorted.map((s, i) => <DriverRow key={s.driver_id} stat={s} rank={i + 1} />)
                 )}

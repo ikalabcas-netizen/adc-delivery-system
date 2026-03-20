@@ -83,13 +83,13 @@ function useApproveFee() {
   })
 }
 
-function useCreateVouchers() {
+function useCreateVouchers(clearSelection: () => void) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ selectedIds }: { selectedIds: Set<string> }) => {
       if (selectedIds.size === 0) throw new Error('Chưa chọn đơn nào')
 
-      // Fetch fresh data from DB directly — don't rely on cached fees state
+      // Fetch fresh data from DB — only approved orders
       const { data: rows, error } = await supabase
         .from('orders')
         .select('id, extra_fee, assigned_to, assigned_driver:profiles!orders_assigned_to_fkey(id, full_name)')
@@ -100,9 +100,18 @@ function useCreateVouchers() {
       const approved = rows ?? []
       if (approved.length === 0) throw new Error('Không có đơn nào đang ở trạng thái Đã duyệt trong danh sách chọn')
 
+      // Bug 1 fix: Exclude orders that already have a voucher item
+      const { data: existingItems } = await supabase
+        .from('payment_voucher_items')
+        .select('order_id')
+        .in('order_id', approved.map(o => o.id))
+      const alreadyInVoucher = new Set((existingItems ?? []).map(i => i.order_id))
+      const eligible = approved.filter(o => !alreadyInVoucher.has(o.id))
+      if (eligible.length === 0) throw new Error('Tất cả đơn đã chọn đều đã nằm trong chứng từ')
+
       // Group by driver
       const byDriver = new Map<string, { total: number; orderIds: string[] }>()
-      for (const o of approved) {
+      for (const o of eligible) {
         const drvId = (o as any).assigned_to as string
         if (!drvId) continue
         if (!byDriver.has(drvId)) byDriver.set(drvId, { total: 0, orderIds: [] })
@@ -129,14 +138,17 @@ function useCreateVouchers() {
           .select().single()
         if (vErr) throw vErr
 
-        const items = orderIds.map(oid => ({ voucher_id: voucher.id, order_id: oid, amount: (approved.find(o => o.id === oid)?.extra_fee ?? 0) }))
+        const items = orderIds.map(oid => ({ voucher_id: voucher.id, order_id: oid, amount: (eligible.find(o => o.id === oid)?.extra_fee ?? 0) }))
         if (items.length > 0) {
           const { error: iErr } = await supabase.from('payment_voucher_items').insert(items)
           if (iErr) throw iErr
         }
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['accounting'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounting'] })
+      clearSelection() // Bug 4 fix: reset selection
+    },
   })
 }
 
@@ -307,7 +319,7 @@ export function AccountingPage() {
   const { data: fees = [], isLoading: feesLoading } = useFees()
   const { data: vouchers = [], isLoading: vouchersLoading } = useVouchers()
   const approve = useApproveFee()
-  const createVouchers = useCreateVouchers()
+  const createVouchers = useCreateVouchers(() => setSelected(new Set()))
   const markPaid = useMarkPaid()
 
   // Stats

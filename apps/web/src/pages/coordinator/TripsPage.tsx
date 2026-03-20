@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Truck, Calendar, ChevronDown, ChevronUp, Package, CheckCircle, Clock, CalendarRange } from 'lucide-react'
+import { Truck, Calendar, ChevronDown, ChevronUp, Package, CheckCircle, Clock, CalendarRange, Navigation } from 'lucide-react'
 import { useTrips, TripFilters } from '@/hooks/useTrips'
 import type { Trip, TripStatus, Order } from '@adc/shared-types'
 
@@ -205,6 +205,20 @@ function TripCard({ trip }: { trip: Trip }) {
               }} />
             </div>
           </div>
+
+          {/* Optimized route metrics */}
+          {trip.optimized_distance_km != null && (
+            <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#0891b2', fontWeight: 600 }}>
+                <Navigation size={10} /> {trip.optimized_distance_km} km
+              </span>
+              {trip.optimized_duration_min != null && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#64748b' }}>
+                  <Clock size={10} /> ~{trip.optimized_duration_min} phút
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right — time + expand */}

@@ -52,7 +52,8 @@ Deno.serve(async (req) => {
   // 3. Redis cache check (TTL 15 min)
   const cached = await redis.get(cacheKey)
   if (cached) {
-    return new Response(JSON.stringify({ optimized_route: cached, fromCache: true }), {
+    const cachedData = typeof cached === 'string' ? JSON.parse(cached) : cached
+    return new Response(JSON.stringify({ ...cachedData, fromCache: true }), {
       headers: { "Content-Type": "application/json" },
     })
   }
@@ -87,17 +88,23 @@ Deno.serve(async (req) => {
   }
 
   const orsData = await orsRes.json()
-  const optimized_route = parseORSResult(orsData, trip.orders ?? [])
+  const { optimized_route, total_distance_km, total_duration_min } = parseORSResult(orsData, trip.orders ?? [])
 
   // 6. Cache result (15 min) + save to DB
-  await redis.set(cacheKey, JSON.stringify(optimized_route), { ex: 900 })
+  const cachePayload = { optimized_route, total_distance_km, total_duration_min }
+  await redis.set(cacheKey, JSON.stringify(cachePayload), { ex: 900 })
 
   await supabase
     .from("trips")
-    .update({ optimized_route, route_cache_key: cacheKey })
+    .update({
+      optimized_route,
+      route_cache_key: cacheKey,
+      optimized_distance_km: total_distance_km,
+      optimized_duration_min: total_duration_min,
+    })
     .eq("id", tripId)
 
-  return new Response(JSON.stringify({ optimized_route, fromCache: false }), {
+  return new Response(JSON.stringify({ optimized_route, total_distance_km, total_duration_min, fromCache: false }), {
     headers: { "Content-Type": "application/json" },
   })
 })
@@ -125,10 +132,16 @@ function buildORSJobs(orders: any[]) {
   return jobs
 }
 
-// Helper: parse ORS result into RouteStop[]
+// Helper: parse ORS result into RouteStop[] + distance/duration
 function parseORSResult(orsData: any, orders: any[]) {
-  const steps = orsData?.routes?.[0]?.steps ?? []
-  return steps
+  const route = orsData?.routes?.[0]
+  const steps = route?.steps ?? []
+
+  // Distance in meters → km, duration in seconds → minutes
+  const total_distance_km = route?.distance ? Math.round(route.distance / 10) / 100 : 0
+  const total_duration_min = route?.duration ? Math.round(route.duration / 60) : 0
+
+  const optimized_route = steps
     .filter((s: any) => s.type === "job")
     .map((s: any, idx: number) => ({
       sequence:   idx + 1,
@@ -139,6 +152,8 @@ function parseORSResult(orsData: any, orders: any[]) {
       type:       s.job_type ?? "delivery",
       eta:        s.arrival ? new Date(s.arrival * 1000).toISOString() : undefined,
     }))
+
+  return { optimized_route, total_distance_km, total_duration_min }
 }
 
 // Helper: SHA-256 for cache key

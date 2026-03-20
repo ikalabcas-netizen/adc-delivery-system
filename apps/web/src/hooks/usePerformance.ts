@@ -17,7 +17,7 @@ export function useSystemStats() {
           .gte('created_at', from),
         supabase
           .from('trips')
-          .select('status, started_at, completed_at')
+          .select('status, started_at, completed_at, optimized_distance_km')
           .gte('created_at', from),
         supabase
           .from('profiles')
@@ -50,7 +50,10 @@ export function useSystemStats() {
           }, 0) / completedTrips.length)
         : null
 
-      return { total, delivered, cancelled, successRate, activeTrips, driversOnShift, avgTripMinutes }
+      // Total optimized KM today
+      const totalOptimizedKm = trips.reduce((sum, t) => sum + (Number(t.optimized_distance_km) || 0), 0)
+
+      return { total, delivered, cancelled, successRate, activeTrips, driversOnShift, avgTripMinutes, totalOptimizedKm: Math.round(totalOptimizedKm * 100) / 100 }
     },
     staleTime: 1000 * 60,
     refetchInterval: 1000 * 60,
@@ -59,16 +62,17 @@ export function useSystemStats() {
 
 // ── Per-driver stats for a given period ────────────────────
 export type DriverStat = {
-  driver_id:    string
-  full_name:    string | null
-  avatar_url:   string | null
-  vehicle_plate: string | null
-  shift_status: string | null
-  driver_status: string | null
-  total:        number
-  delivered:    number
-  cancelled:    number
-  successRate:  number
+  driver_id:       string
+  full_name:       string | null
+  avatar_url:      string | null
+  vehicle_plate:   string | null
+  shift_status:    string | null
+  driver_status:   string | null
+  total:           number
+  delivered:       number
+  cancelled:       number
+  successRate:     number
+  totalOptimizedKm: number
 }
 
 export function useDriverPerformance(period: 'today' | 'week' | 'month' = 'today') {
@@ -89,7 +93,7 @@ export function useDriverPerformance(period: 'today' | 'week' | 'month' = 'today
         from = `${now.getFullYear()}-${pad(now.getMonth()+1)}-01T00:00:00`
       }
 
-      const [ordersRes, profilesRes] = await Promise.all([
+      const [ordersRes, profilesRes, tripsRes] = await Promise.all([
         supabase
           .from('orders')
           .select('assigned_to, status')
@@ -99,15 +103,21 @@ export function useDriverPerformance(period: 'today' | 'week' | 'month' = 'today
           .from('profiles')
           .select('id, full_name, avatar_url, vehicle_plate, shift_status, driver_status')
           .eq('role', 'delivery'),
+        supabase
+          .from('trips')
+          .select('driver_id, optimized_distance_km')
+          .gte('created_at', from),
       ])
 
-      if (ordersRes.error) throw ordersRes.error
+      if (ordersRes.error)   throw ordersRes.error
       if (profilesRes.error) throw profilesRes.error
+      if (tripsRes.error)    throw tripsRes.error
 
       const orders  = ordersRes.data  ?? []
       const drivers = profilesRes.data ?? []
+      const tripsData = tripsRes.data ?? []
 
-      // Group
+      // Group orders by driver
       const map = new Map<string, { total: number; delivered: number; cancelled: number }>()
       for (const o of orders) {
         const key = o.assigned_to as string
@@ -118,11 +128,20 @@ export function useDriverPerformance(period: 'today' | 'week' | 'month' = 'today
         map.set(key, cur)
       }
 
+      // Group optimized KM by driver
+      const kmMap = new Map<string, number>()
+      for (const t of tripsData) {
+        if (t.driver_id && t.optimized_distance_km) {
+          kmMap.set(t.driver_id, (kmMap.get(t.driver_id) ?? 0) + Number(t.optimized_distance_km))
+        }
+      }
+
       const stats: DriverStat[] = drivers.map(d => {
         const s = map.get(d.id) ?? { total: 0, delivered: 0, cancelled: 0 }
         const successRate = (s.delivered + s.cancelled) > 0
           ? Math.round(s.delivered / (s.delivered + s.cancelled) * 100) : 0
-        return { driver_id: d.id, full_name: d.full_name, avatar_url: d.avatar_url, vehicle_plate: d.vehicle_plate, shift_status: d.shift_status, driver_status: d.driver_status, ...s, successRate }
+        const totalOptimizedKm = Math.round((kmMap.get(d.id) ?? 0) * 100) / 100
+        return { driver_id: d.id, full_name: d.full_name, avatar_url: d.avatar_url, vehicle_plate: d.vehicle_plate, shift_status: d.shift_status, driver_status: d.driver_status, ...s, successRate, totalOptimizedKm }
       })
 
       return stats.sort((a, b) => b.delivered - a.delivered)

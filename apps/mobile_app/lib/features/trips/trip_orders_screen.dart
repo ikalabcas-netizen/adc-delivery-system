@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../core/image_cache_manager.dart';
 import 'delivery_proof_helper.dart';
 import 'trip_service.dart';
+import 'route_optimizer_service.dart';
 
 final _supabase = Supabase.instance.client;
 final _picker   = ImagePicker();
@@ -26,6 +27,10 @@ class TripOrdersScreen extends StatefulWidget {
 class _TripOrdersScreenState extends State<TripOrdersScreen> {
   List<Map<String, dynamic>> _orders = [];
   bool _loading = true;
+  // Route optimization state
+  bool _optimizing = false;
+  OptimizedRouteResult? _optimizeResult;
+  String? _optimizeError;
 
   @override
   void initState() {
@@ -90,6 +95,56 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
     );
   }
 
+  // Route optimization
+  Future<void> _optimizeRoute() async {
+    setState(() { _optimizing = true; _optimizeError = null; });
+    try {
+      final result = await RouteOptimizerService.optimize(widget.tripId);
+      if (mounted) {
+        setState(() {
+          _optimizeResult = result;
+          _optimizing = false;
+        });
+        // Reorder orders based on optimization result
+        if (result.optimizedRoute.isNotEmpty) {
+          _reorderByOptimization(result);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _optimizeError = e.toString().replaceAll('Exception: ', '');
+          _optimizing = false;
+        });
+      }
+    }
+  }
+
+  void _reorderByOptimization(OptimizedRouteResult result) {
+    final ordered = <Map<String, dynamic>>[];
+    for (final stop in result.optimizedRoute) {
+      final orderId = stop['orderId'] ?? stop['description'];
+      final match = _orders.firstWhere(
+        (o) => o['id'] == orderId,
+        orElse: () => <String, dynamic>{},
+      );
+      if (match.isNotEmpty && !ordered.contains(match)) ordered.add(match);
+    }
+    // Add any missing orders at the end
+    for (final o in _orders) {
+      if (!ordered.contains(o)) ordered.add(o);
+    }
+    setState(() => _orders = ordered);
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    if (newIndex > oldIndex) newIndex--;
+    setState(() {
+      final item = _orders.removeAt(oldIndex);
+      _orders.insert(newIndex, item);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final active   = _orders.where((o) => o['status'] == 'in_transit').toList();
@@ -110,17 +165,50 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     children: [
+                      // ── Route optimization section ──
+                      _buildOptimizeSection(),
+
                       if (active.isNotEmpty) ...[
                         _sectionHeader('🚚 Đang giao (${active.length})', const Color(0xFF7C3AED)),
-                        ...active.asMap().entries.map((e) => _OrderItem(
-                          order: e.value, index: e.key + 1,
-                          onComplete: () => _onComplete(e.value),
-                          onFail:     () => _onFail(e.value),
-                        )),
+                        // Reorderable list for active orders
+                        ReorderableListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: active.length,
+                          onReorder: (oldIdx, newIdx) {
+                            // Map indices back to _orders
+                            final globalOld = _orders.indexOf(active[oldIdx]);
+                            final adjustedNew = newIdx > oldIdx ? newIdx - 1 : newIdx;
+                            final globalNew = adjustedNew < active.length
+                                ? _orders.indexOf(active[adjustedNew])
+                                : _orders.indexOf(active.last) + 1;
+                            _onReorder(globalOld, globalNew);
+                          },
+                          proxyDecorator: (child, _, animation) {
+                            return AnimatedBuilder(
+                              animation: animation,
+                              builder: (_, child) => Material(
+                                elevation: 4,
+                                borderRadius: BorderRadius.circular(14),
+                                child: child,
+                              ),
+                              child: child,
+                            );
+                          },
+                          itemBuilder: (_, i) => _OrderItem(
+                            key: ValueKey(active[i]['id']),
+                            order: active[i],
+                            index: i + 1,
+                            onComplete: () => _onComplete(active[i]),
+                            onFail: () => _onFail(active[i]),
+                            showDragHandle: active.length > 1,
+                          ),
+                        ),
                       ],
                       if (finished.isNotEmpty) ...[
                         _sectionHeader('✅ Đã xử lý (${finished.length})', const Color(0xFF059669)),
                         ...finished.asMap().entries.map((e) => _OrderItem(
+                          key: ValueKey(e.value['id']),
                           order: e.value, index: active.length + e.key + 1,
                           onComplete: null, onFail: null,
                         )),
@@ -128,6 +216,92 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
                     ],
                   ),
                 ),
+    );
+  }
+
+  Widget _buildOptimizeSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Optimize button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _optimizing ? null : _optimizeRoute,
+              icon: _optimizing
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.alt_route_rounded, size: 18),
+              label: Text(
+                _optimizing ? 'Đang tối ưu...' : '🔄 Tối ưu tuyến đường',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0891B2),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+            ),
+          ),
+          // Error message
+          if (_optimizeError != null) ...[  
+            const SizedBox(height: 8),
+            Text(_optimizeError!, style: const TextStyle(fontSize: 12, color: Color(0xFFE11D48))),
+          ],
+          // Stats from optimization
+          if (_optimizeResult != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFEFF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.route_rounded, size: 16, color: Color(0xFF0891B2)),
+                  const SizedBox(width: 6),
+                  Text(
+                    '📏 ${_optimizeResult!.totalDistanceKm.toStringAsFixed(1)} km',
+                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF0891B2)),
+                  ),
+                  const SizedBox(width: 14),
+                  const Icon(Icons.timer_outlined, size: 16, color: Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '⏱ ~${_optimizeResult!.totalDurationMin} phút',
+                    style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B)),
+                  ),
+                  if (_optimizeResult!.fromCache) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)),
+                      child: const Text('cached', style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8))),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          // Drag hint
+          const SizedBox(height: 6),
+          Text(
+            '☰ Kéo thả để sắp xếp thứ tự giao hàng',
+            style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -143,7 +317,8 @@ class _OrderItem extends StatelessWidget {
   final int index;
   final VoidCallback? onComplete;
   final VoidCallback? onFail;
-  const _OrderItem({required this.order, required this.index, this.onComplete, this.onFail});
+  final bool showDragHandle;
+  const _OrderItem({super.key, required this.order, required this.index, this.onComplete, this.onFail, this.showDragHandle = false});
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +345,13 @@ class _OrderItem extends StatelessWidget {
             // Header
             Row(
               children: [
+                if (showDragHandle) ...[
+                  ReorderableDragStartListener(
+                    index: index - 1,
+                    child: const Icon(Icons.drag_handle_rounded, size: 20, color: Color(0xFF94A3B8)),
+                  ),
+                  const SizedBox(width: 6),
+                ],
                 Container(
                   width: 30, height: 30,
                   decoration: BoxDecoration(color: const Color(0xFF0A3444), borderRadius: BorderRadius.circular(8)),
@@ -381,6 +563,7 @@ class _CompleteOrderSheetState extends State<_CompleteOrderSheet> {
       await _supabase.from('orders').update({
         'status': 'delivered',
         'delivery_proof_url': publicUrl,
+        'delivered_at': DateTime.now().toUtc().toIso8601String(),
         if (feeVal != null && feeVal > 0) 'extra_fee': feeVal,
         if (feeVal != null && feeVal > 0 && _noteCtrl.text.trim().isNotEmpty)
           'extra_fee_note': _noteCtrl.text.trim(),

@@ -5,18 +5,27 @@ final _supabase = Supabase.instance.client;
 
 class TripService {
   /// Tạo chuyến đi và bắt đầu giao ngay.
-  static Future<String> createAndStartTrip(List<String> orderIds) async {
+  /// [stopSequence] — thứ tự giao cuối cùng (sau khi tối ưu + drag-drop).
+  static Future<String> createAndStartTrip(
+    List<String> orderIds, {
+    List<Map<String, dynamic>>? stopSequence,
+  }) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) throw Exception('Chưa đăng nhập');
     if (orderIds.isEmpty) throw Exception('Chưa chọn đơn nào');
 
+    final insertData = <String, dynamic>{
+      'driver_id': userId,
+      'status': 'active',
+      'started_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    if (stopSequence != null) {
+      insertData['stop_sequence'] = stopSequence;
+    }
+
     final trip = await _supabase
         .from('trips')
-        .insert({
-          'driver_id': userId,
-          'status': 'active',
-          'started_at': DateTime.now().toUtc().toIso8601String(),
-        })
+        .insert(insertData)
         .select()
         .single();
 

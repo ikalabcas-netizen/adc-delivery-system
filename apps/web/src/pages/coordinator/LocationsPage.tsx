@@ -246,51 +246,82 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Geocode from address
+  // Geocode — autocomplete with Nominatim + Mapbox
+  const [geocodeResults, setGeocodeResults] = useState<import('@/lib/geocoding').GeocodingResult[]>([])
+  const [showGeocodeDropdown, setShowGeocodeDropdown] = useState(false)
+  const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Debounced autocomplete on address change
+  const handleAddressChange = useCallback((value: string) => {
+    setAddress(value)
+    setGeocodeMsg('')
+    if (geocodeTimer.current) clearTimeout(geocodeTimer.current)
+    if (!value.trim() || value.trim().length < 3) {
+      setGeocodeResults([])
+      setShowGeocodeDropdown(false)
+      return
+    }
+    geocodeTimer.current = setTimeout(async () => {
+      setGeocoding(true)
+      try {
+        const { geocodeAddress } = await import('@/lib/geocoding')
+        const results = await geocodeAddress(value)
+        setGeocodeResults(results)
+        setShowGeocodeDropdown(results.length > 0)
+      } catch {
+        setGeocodeResults([])
+      } finally {
+        setGeocoding(false)
+      }
+    }, 300)
+  }, [])
+
+  // Select a geocode result
+  const selectGeoResult = useCallback(async (result: import('@/lib/geocoding').GeocodingResult) => {
+    setLat(result.lat.toFixed(6))
+    setLng(result.lng.toFixed(6))
+    setGeocodeMsg(`✓ ${result.address}`)
+    setShowGeocodeDropdown(false)
+    // Fly map + update marker
+    if (miniMapInstance.current) {
+      miniMapInstance.current.flyTo({ center: [result.lng, result.lat], zoom: 16, duration: 800 })
+      const { mapboxgl } = await import('@/lib/mapbox')
+      if (markerRef.current) {
+        markerRef.current.setLngLat([result.lng, result.lat])
+      } else {
+        const marker = new mapboxgl.Marker({ draggable: true, color: '#06b6d4' })
+          .setLngLat([result.lng, result.lat])
+          .addTo(miniMapInstance.current)
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat()
+          setLat(lngLat.lat.toFixed(6))
+          setLng(lngLat.lng.toFixed(6))
+        })
+        markerRef.current = marker
+      }
+    }
+  }, [])
+
+  // Manual search fallback
   const handleGeocode = useCallback(async () => {
     if (!address.trim()) { setGeocodeMsg('Nhập địa chỉ trước'); return }
     setGeocoding(true)
     setGeocodeMsg('')
     try {
-      const token = import.meta.env.VITE_MAPBOX_TOKEN
-      if (!token) { setGeocodeMsg('Chưa cấu hình Mapbox token'); return }
-      const q = encodeURIComponent(address.trim())
-      const res = await fetch(
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${q}.json?access_token=${token}&country=VN&limit=1&language=vi`
-      )
-      const data = await res.json()
-      if (data.features?.length > 0) {
-        const [foundLng, foundLat] = data.features[0].center
-        setLat(foundLat.toFixed(6))
-        setLng(foundLng.toFixed(6))
-        setGeocodeMsg(`✓ ${data.features[0].place_name}`)
-        // Move map + marker
-        if (miniMapInstance.current) {
-          miniMapInstance.current.flyTo({ center: [foundLng, foundLat], zoom: 16, duration: 800 })
-          const { mapboxgl } = await import('@/lib/mapbox')
-          if (markerRef.current) {
-            markerRef.current.setLngLat([foundLng, foundLat])
-          } else {
-            const marker = new mapboxgl.Marker({ draggable: true, color: '#06b6d4' })
-              .setLngLat([foundLng, foundLat])
-              .addTo(miniMapInstance.current)
-            marker.on('dragend', () => {
-              const lngLat = marker.getLngLat()
-              setLat(lngLat.lat.toFixed(6))
-              setLng(lngLat.lng.toFixed(6))
-            })
-            markerRef.current = marker
-          }
-        }
+      const { geocodeAddress } = await import('@/lib/geocoding')
+      const results = await geocodeAddress(address)
+      if (results.length > 0) {
+        setGeocodeResults(results)
+        setShowGeocodeDropdown(true)
       } else {
         setGeocodeMsg('Không tìm thấy toạ độ cho địa chỉ này')
       }
-    } catch (err) {
+    } catch {
       setGeocodeMsg('Lỗi kết nối geocoding')
     } finally {
       setGeocoding(false)
     }
-  }, [address, lat, lng])
+  }, [address])
 
   async function handleSubmit() {
     if (!name.trim() || !address.trim()) { setError('Tên và địa chỉ bắt buộc'); return }
@@ -340,7 +371,41 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Kho ADC, Nhà A..." style={inputStyle} autoFocus />
 
         <label style={labelStyle}>Địa chỉ <span style={{ color: '#ef4444' }}>*</span></label>
-        <input value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Nguyễn Văn Linh, Q.7" style={inputStyle} />
+        <div style={{ position: 'relative' }}>
+          <input value={address} onChange={e => handleAddressChange(e.target.value)} placeholder="123 Nguyễn Văn Linh, Q.7" style={inputStyle} />
+          {geocoding && <Loader size={13} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: '#94a3b8' }} />}
+          {/* Autocomplete dropdown */}
+          {showGeocodeDropdown && geocodeResults.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+              background: '#fff', border: '1px solid #e2e8f0', borderRadius: '0 0 10px 10px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto',
+            }}>
+              {geocodeResults.map(r => (
+                <div
+                  key={r.id}
+                  onClick={() => selectGeoResult(r)}
+                  style={{
+                    padding: '9px 12px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 8,
+                    borderBottom: '1px solid #f1f5f9', fontSize: 12, fontFamily: 'Outfit, sans-serif',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f0f9ff')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{r.source === 'nominatim' ? '🗺️' : '📍'}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.address}</div>
+                  </div>
+                  <span style={{ fontSize: 9, color: '#cbd5e1', fontWeight: 600, flexShrink: 0, marginTop: 2 }}>
+                    {r.source === 'nominatim' ? 'OSM' : 'Mapbox'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <label style={labelStyle}>Số điện thoại</label>
         <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="0901..." style={inputStyle} />
@@ -353,7 +418,7 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
           </span>
         </label>
 
-        {/* Geocode button */}
+        {/* Manual geocode button (fallback) */}
         <button
           onClick={handleGeocode}
           disabled={geocoding || !address.trim()}

@@ -95,10 +95,15 @@ export type DriverStatus = 'free' | 'delivering'
 export interface DriverShift {
   id:          string
   driver_id:   string
+  driver?:     Profile | null
   started_at:  string
   ended_at:    string | null
   status:      ShiftStatus
   status_log:  Array<{ status: DriverStatus; ts: string }>
+  km_in:       number | null
+  km_out:      number | null
+  odometer_photo_in_url:  string | null
+  odometer_photo_out_url: string | null
   created_at:  string
 }
 
@@ -115,17 +120,29 @@ export interface RouteStop {
   eta?:       string
 }
 
+export interface StopSequenceItem {
+  order_id:    string
+  location_id: string
+  name:        string
+  lat:         number
+  lng:         number
+  sequence:    number
+}
+
 export interface Trip {
-  id:               string
-  driver_id:        string | null
-  driver?:          Profile | null
-  status:           TripStatus
-  optimized_route:  RouteStop[] | null
-  route_cache_key:  string | null
-  started_at:       string | null
-  completed_at:     string | null
-  created_at:       string
-  orders?:          Order[]
+  id:                    string
+  driver_id:             string | null
+  driver?:               Profile | null
+  status:                TripStatus
+  optimized_route:       RouteStop[] | null
+  route_cache_key:       string | null
+  optimized_distance_km: number | null
+  optimized_duration_min: number | null
+  stop_sequence:         StopSequenceItem[] | null
+  started_at:            string | null
+  completed_at:          string | null
+  created_at:            string
+  orders?:               Order[]
 }
 
 // ---- Driver Locations (Realtime Broadcast) ----
