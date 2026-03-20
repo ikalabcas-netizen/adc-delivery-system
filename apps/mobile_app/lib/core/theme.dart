@@ -88,6 +88,27 @@ class AppTheme {
         unselectedItemColor: Color(0xFF94A3B8),
         elevation: 8,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        indicatorColor: _cyan500.withValues(alpha: 0.15),
+        surfaceTintColor: Colors.transparent,
+        elevation: 3,
+        shadowColor: Colors.black26,
+        height: 68,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: _cyan600, size: 24);
+          }
+          return const IconThemeData(color: Color(0xFF94A3B8), size: 24);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: _cyan600);
+          }
+          return GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8));
+        }),
+      ),
     );
   }
 
@@ -163,6 +184,27 @@ class AppTheme {
         selectedItemColor: _cyan500,
         unselectedItemColor: Color(0xFF64748B),
         elevation: 8,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF0F172A),
+        indicatorColor: _cyan500.withValues(alpha: 0.2),
+        surfaceTintColor: Colors.transparent,
+        elevation: 3,
+        shadowColor: Colors.black45,
+        height: 68,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: _cyan500, size: 24);
+          }
+          return const IconThemeData(color: Color(0xFF64748B), size: 24);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: _cyan500);
+          }
+          return GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF64748B));
+        }),
       ),
     );
   }
