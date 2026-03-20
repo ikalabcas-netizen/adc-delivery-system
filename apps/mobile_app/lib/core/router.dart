@@ -17,19 +17,32 @@ import '../features/costs/costs_screen.dart';
 
 final supabase = Supabase.instance.client;
 
+/// Notifier that refreshes GoRouter whenever auth state changes.
+/// This ensures the router re-evaluates redirect() after OAuth callback sets session.
+final _authNotifier = _SupabaseAuthNotifier();
+
+class _SupabaseAuthNotifier extends ChangeNotifier {
+  _SupabaseAuthNotifier() {
+    supabase.auth.onAuthStateChange.listen((_) => notifyListeners());
+  }
+}
+
 final router = GoRouter(
   initialLocation: '/shift',
+  refreshListenable: _authNotifier,
   redirect: (context, state) {
     final session = supabase.auth.currentSession;
     final loc = state.matchedLocation;
-    final isOnLogin = loc == '/login';
+    final isOnLogin    = loc == '/login';
     final isOnCallback = loc == '/login-callback';
+    final isOnPending  = loc == '/pending';
 
+    // While waiting at callback page, keep showing loading until session arrives
     if (isOnCallback) {
-      return session != null ? '/shift' : '/login';
+      return session != null ? '/shift' : null; // null = stay on loading screen
     }
     if (session == null) {
-      return isOnLogin ? null : '/login';
+      return (isOnLogin || isOnPending) ? null : '/login';
     }
     if (isOnLogin) return '/shift';
     return null;
@@ -105,36 +118,3 @@ final router = GoRouter(
     ),
   ],
 );
-
-/// Temporary placeholder screen — replaced when full feature is built.
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  const _PlaceholderScreen({required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: const Color(0xFF0891B2),
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: const Color(0xFFCBD5E1)),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 16, color: Color(0xFF94A3B8))),
-            const SizedBox(height: 6),
-            const Text(
-              'Tính năng đang được phát triển',
-              style: TextStyle(fontSize: 12, color: Color(0xFFCBD5E1)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -107,6 +107,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tabIndex,
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF0F172A)
+            : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black26,
+        elevation: 8,
         onDestinationSelected: (i) {
           context.go(_tabs[i]);
           // Re-fetch shift status every time user taps a tab
