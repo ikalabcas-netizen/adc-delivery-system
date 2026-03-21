@@ -411,6 +411,74 @@ function ShiftRow({ s, onApprove, onReject, selected, onToggle, isActing, priceP
   )
 }
 
+function VoucherRow({ v, onMarkPaid }: { v: any, onMarkPaid: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const isKm = v.type === 'km_payment'
+  
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <div 
+        onClick={() => setExpanded(!expanded)}
+        style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'background 0.2s' }}
+        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+        onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+      >
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: isKm ? '#dcfce7' : '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {isKm ? <MapPin size={18} color="#16a34a"/> : <Truck size={18} color="#ea580c"/>}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', ...F }}>{v.driver?.full_name}</span>
+            <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{v.voucher_code}</span>
+            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: isKm ? '#dcfce7' : '#ffedd5', color: isKm ? '#166534' : '#9a3412', fontWeight: 600 }}>{isKm ? 'KM' : 'Phụ phí'}</span>
+          </div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Ngày lập: {fmtDate(v.created_at)} · {v.items?.length || 0} mục chi</div>
+        </div>
+        <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a', ...F }}>{fmt(v.total_amount)}</div>
+        <div onClick={e => e.stopPropagation()}><Badge status={v.status === 'paid' ? 'approved_paid' : 'pending'} /></div>
+        {v.status === 'pending' && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); onMarkPaid(); }} 
+            style={{ padding: '8px 14px', borderRadius: 8, background: 'linear-gradient(135deg, #4f46e5, #4338ca)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', boxShadow: '0 2px 8px rgba(79,70,229,0.3)', ...F }}
+          >
+            Xác nhận chi
+          </button>
+        )}
+        <div style={{ marginLeft: 8, color: '#94a3b8' }}>
+          {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </div>
+      </div>
+      
+      {expanded && (
+        <div style={{ padding: '16px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 4, ...F }}>Chi tiết chứng từ:</div>
+          {(v.items || []).map((item: any) => {
+            const dateStr = item.shift?.started_at ? fmtDate(item.shift.started_at) : '—';
+            const timeStr = item.shift?.started_at ? fmtTime(item.shift.started_at) : '';
+            return (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#cbd5e1' }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', ...F }}>
+                      {isKm ? `Ca làm việc ngày ${dateStr}` : (item.order?.code || '—')}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#64748b', ...F }}>
+                      {isKm ? `Bắt đầu ca lúc ${timeStr}` : (item.order?.delivery_location?.name || '—')}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', ...F }}>
+                  {fmt(item.amount)}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function AccountingPage() {
   const [tab, setTab] = useState<'fees' | 'km_payments' | 'vouchers'>('fees')
@@ -653,22 +721,7 @@ export function AccountingPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {fVouchers.map((v:any) => (
-              <div key={v.id} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: v.type === 'km_payment' ? '#dcfce7' : '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {v.type === 'km_payment' ? <MapPin size={18} color="#16a34a"/> : <Truck size={18} color="#ea580c"/>}
-                 </div>
-                 <div style={{ flex: 1 }}>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                     <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', ...F }}>{v.driver?.full_name}</span>
-                     <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{v.voucher_code}</span>
-                     <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: v.type === 'km_payment'?'#dcfce7':'#ffedd5', color: v.type==='km_payment'?'#166534':'#9a3412', fontWeight: 600 }}>{v.type==='km_payment'?'KM':'Phụ phí'}</span>
-                   </div>
-                   <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Ngày lập: {fmtDate(v.created_at)} · {v.items?.length||0} mục chi</div>
-                 </div>
-                 <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a', ...F }}>{fmt(v.total_amount)}</div>
-                 <Badge status={v.status === 'paid' ? 'approved_paid' : 'pending'} />
-                 {v.status === 'pending' && <button onClick={()=>mut.markPaid.mutate(v.id)} style={{ padding: '9px 16px', borderRadius: 9, background: 'linear-gradient(135deg, #4f46e5, #4338ca)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', boxShadow: '0 2px 8px rgba(79,70,229,0.3)', ...F }}>Xác nhận chi</button>}
-              </div>
+              <VoucherRow key={v.id} v={v} onMarkPaid={() => mut.markPaid.mutate(v.id)} />
             ))}
           </div>
          </>

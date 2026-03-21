@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "typescript": "5.5.4"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
   }
 }

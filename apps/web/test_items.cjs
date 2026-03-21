@@ -6,9 +6,6 @@ dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!url || !key) throw new Error('Missing env vars');
-
 const supabase = createClient(url, key);
 
 async function test() {
@@ -16,16 +13,15 @@ async function test() {
       id, voucher_code, type,
       items:payment_voucher_items(
         id, amount, order_id, shift_id,
-        order:orders(code),
-        shift:driver_shifts(started_at)
+        order:orders!payment_voucher_items_order_id_fkey(code),
+        shift:driver_shifts!payment_voucher_items_shift_id_fkey(started_at)
       )
-  `).order('created_at', { ascending: false }).limit(2);
+  `).order('created_at', { ascending: false }).limit(5);
 
   if (error) {
-    console.error('Error fetching vouchers:', error);
+    console.error('Error:', error);
   } else {
-    console.log('Vouchers:', JSON.stringify(data, null, 2));
+    console.log('Data:', JSON.stringify(data, null, 2));
   }
 }
-
 test();

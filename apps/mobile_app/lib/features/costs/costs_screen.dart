@@ -24,7 +24,7 @@ class _CostsScreenState extends State<CostsScreen>
   @override
   void initState() {
     super.initState();
-    _outerTab = TabController(length: 2, vsync: this);
+    _outerTab = TabController(length: 3, vsync: this);
     _subscribeRealtime();
   }
 
@@ -70,9 +70,12 @@ class _CostsScreenState extends State<CostsScreen>
           indicatorColor: Colors.white,
           indicatorWeight: 3,
           dividerColor: Colors.transparent,
+          isScrollable: true,
+          tabAlignment: TabAlignment.center,
           labelStyle: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700),
           tabs: const [
             Tab(text: 'Phụ phí đơn hàng'),
+            Tab(text: 'Thống kê KM'),
             Tab(text: 'Chứng từ chi trả'),
           ],
         ),
@@ -81,6 +84,7 @@ class _CostsScreenState extends State<CostsScreen>
         controller: _outerTab,
         children: const [
           _ExtraFeesTab(),
+          _KmStatsTab(),
           _VouchersTab(),
         ],
       ),
@@ -511,7 +515,155 @@ class _ProofPhotoPage extends StatelessWidget {
 }
 
 
-// ─── Tab 2: Chứng từ chi trả ──────────────────────────
+// ─── Tab 2: Thống kê KM ───────────────────────────────────
+class _KmStatsTab extends StatefulWidget {
+  const _KmStatsTab();
+  @override
+  State<_KmStatsTab> createState() => _KmStatsTabState();
+}
+
+class _KmStatsTabState extends State<_KmStatsTab> {
+  List<Map<String, dynamic>> _shifts = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    setState(() => _loading = true);
+    final uid = _supabase.auth.currentUser?.id;
+    if (uid == null) { setState(() => _loading = false); return; }
+    try {
+      final res = await _supabase
+          .from('driver_shifts')
+          .select('id, started_at, ended_at, km_in, km_out, km_driven, km_payment_amount, km_approval_status, km_approval_note')
+          .eq('driver_id', uid)
+          .not('ended_at', 'is', null) // Only show ended shifts
+          .order('started_at', ascending: false);
+
+      if (mounted) {
+        setState(() {
+          _shifts = List<Map<String, dynamic>>.from(res);
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_shifts.isEmpty) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.route_rounded, size: 60, color: Color(0xFFCBD5E1)),
+        const SizedBox(height: 12),
+        Text('Chưa có ca làm việc nào hoàn thành', style: GoogleFonts.outfit(fontSize: 15, color: const Color(0xFF94A3B8))),
+      ]));
+    }
+    return RefreshIndicator(
+      onRefresh: _fetch,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(14),
+        itemCount: _shifts.length,
+        itemBuilder: (_, i) {
+          final s = _shifts[i];
+          final st = s['started_at'] != null ? DateTime.parse(s['started_at']).toLocal() : null;
+          final ed = s['ended_at'] != null ? DateTime.parse(s['ended_at']).toLocal() : null;
+          final timeStr = st != null 
+              ? '${DateFormat('dd/MM/yyyy • HH:mm').format(st)}${ed != null ? ' - ${DateFormat('HH:mm').format(ed)}' : ''}'
+              : '—';
+
+          final status = s['km_approval_status'] as String? ?? 'pending';
+          final note = s['km_approval_note'] as String? ?? '';
+          final amt = s['km_payment_amount'] as int? ?? 0;
+          final driven = s['km_driven'] ?? 0;
+
+          final statusStyle = {
+            'pending': {'l': '⏳ Chờ duyệt', 'bg': const Color(0xFFFEF9C3), 'c': const Color(0xFF92400E)},
+            'approved': {'l': '✅ Đã duyệt', 'bg': const Color(0xFFDCFCE7), 'c': const Color(0xFF166534)},
+            'rejected': {'l': '❌ Từ chối', 'bg': const Color(0xFFFEE2E2), 'c': const Color(0xFF991B1B)},
+          };
+          final style = statusStyle[status] ?? statusStyle['pending']!;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Ca làm việc', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: style['bg'] as Color, borderRadius: BorderRadius.circular(20)),
+                      child: Text(style['l'] as String, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: style['c'] as Color)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(timeStr, style: const TextStyle(fontSize: 13, color: Color(0xFF475569))),
+                const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Thực tế', style: TextStyle(fontSize: 11, color: Color(0xFF64748b))),
+                          Text('$driven km', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                        ]
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('Thực nhận / Dự kiến', style: TextStyle(fontSize: 11, color: Color(0xFF64748b))),
+                          Text('${_fmt.format(amt)} ₫', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF059669))),
+                        ]
+                      ),
+                    ),
+                  ],
+                ),
+                if (note.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFFDC2626)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('Kế toán: "$note"', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF991B1B)))),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Tab 3: Chứng từ chi trả ──────────────────────────
 class _VouchersTab extends StatefulWidget {
   const _VouchersTab();
   @override
@@ -625,17 +777,15 @@ class _VouchersTabState extends State<_VouchersTab> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
+                        Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                           Text(v['voucher_code'] as String,
                               style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
-                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(color: v['type'] == 'km_payment' ? const Color(0xFFDCFCE7) : const Color(0xFFFFEDD5), borderRadius: BorderRadius.circular(4)),
                             child: Text(v['type'] == 'km_payment' ? 'KM' : 'Phụ phí',
                                 style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: v['type'] == 'km_payment' ? const Color(0xFF166534) : const Color(0xFF9A3412))),
                           ),
-                          const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(color: cfg['bg'] as Color, borderRadius: BorderRadius.circular(20)),
@@ -649,6 +799,7 @@ class _VouchersTabState extends State<_VouchersTab> {
                           style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                         ),
                       ])),
+                      const SizedBox(width: 8),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                         Text('${_fmt.format(amount)} ₫',
                             style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: const Color(0xFF059669))),
