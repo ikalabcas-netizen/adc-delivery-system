@@ -90,7 +90,7 @@ export function AccountingConfigPage() {
     <div style={{ ...F, maxWidth: 640 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #059669, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #4f46e5, #4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Settings size={20} color="#fff" />
         </div>
         <div>
@@ -129,8 +129,8 @@ export function AccountingConfigPage() {
                   maxWidth: 200,
                 }}
                 onFocus={e => {
-                  e.currentTarget.style.borderColor = '#06b6d4'
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(6,182,212,0.1)'
+                  e.currentTarget.style.borderColor = '#4f46e5'
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.1)'
                 }}
                 onBlur={e => {
                   e.currentTarget.style.borderColor = '#e2e8f0'
@@ -151,7 +151,7 @@ export function AccountingConfigPage() {
                     padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                     cursor: 'pointer', ...F, transition: 'all 0.15s ease',
                     border: pricePerKm === v ? 'none' : '1px solid #e2e8f0',
-                    background: pricePerKm === v ? '#0891b2' : '#fff',
+                    background: pricePerKm === v ? '#4f46e5' : '#fff',
                     color: pricePerKm === v ? '#fff' : '#64748b',
                   }}>
                   {v.toLocaleString('vi-VN')}₫
@@ -163,11 +163,11 @@ export function AccountingConfigPage() {
           {/* Example calculation */}
           <div style={{
             padding: '14px 16px', borderRadius: 10,
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
+            background: '#e0e7ff', border: '1px solid #c7d2fe',
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            <Info size={14} color="#059669" />
-            <span style={{ fontSize: 12, color: '#059669' }}>
+            <Info size={14} color="#4f46e5" />
+            <span style={{ fontSize: 12, color: '#4f46e5' }}>
               Ví dụ: Giao nhận đi {exampleKm} km → chi phí dự trù = <strong>{exampleCost.toLocaleString('vi-VN')} ₫</strong>
             </span>
           </div>
@@ -199,18 +199,18 @@ export function AccountingConfigPage() {
           disabled={!hasChanges || save.isPending}
           style={{
             padding: '10px 24px', borderRadius: 10,
-            background: hasChanges ? 'linear-gradient(135deg, #059669, #10b981)' : '#e2e8f0',
+            background: hasChanges ? 'linear-gradient(135deg, #4f46e5, #4338ca)' : '#e2e8f0',
             color: hasChanges ? '#fff' : '#94a3b8',
             border: 'none', fontSize: 13, fontWeight: 700, cursor: hasChanges ? 'pointer' : 'not-allowed',
             display: 'flex', alignItems: 'center', gap: 8, ...F,
-            boxShadow: hasChanges ? '0 2px 8px rgba(5,150,105,0.3)' : 'none',
+            boxShadow: hasChanges ? '0 2px 8px rgba(79,70,229,0.3)' : 'none',
             transition: 'all 0.2s ease',
           }}>
           <Save size={14} />
           {save.isPending ? 'Đang lưu...' : 'Lưu cấu hình'}
         </button>
         {saved && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#059669', fontWeight: 600 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#4f46e5', fontWeight: 600 }}>
             <CheckCircle size={14} /> Đã lưu thành công!
           </span>
         )}

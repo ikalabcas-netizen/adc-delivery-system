@@ -18,7 +18,7 @@ export function AccountantLayout() {
   return (
     <ResponsiveShell
       navItems={NAV_ITEMS}
-      accentColor="#059669"
+      accentColor="#4f46e5"
       roleLabel="Kế toán"
       profilePath="/accounting/profile"
     >

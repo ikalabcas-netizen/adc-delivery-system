@@ -205,7 +205,7 @@ export function AccountingDashboardPage() {
     <div style={{ ...F, maxWidth: 1080 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #059669, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #4f46e5, #4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <BarChart3 size={20} color="#fff" />
         </div>
         <div>
@@ -228,7 +228,7 @@ export function AccountingDashboardPage() {
               padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
               cursor: 'pointer', ...F, transition: 'all 0.15s ease',
               border: datePreset === p.key ? 'none' : '1px solid #e2e8f0',
-              background: datePreset === p.key ? '#059669' : '#fff',
+              background: datePreset === p.key ? '#4f46e5' : '#fff',
               color: datePreset === p.key ? '#fff' : '#64748b',
             }}>
             {p.label}
@@ -247,7 +247,7 @@ export function AccountingDashboardPage() {
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
-        <KpiCard icon={<DollarSign size={18} color="#059669" />} label="Tổng chi phí dự trù" value={fmt(totals.totalCost)} color="#059669" />
+        <KpiCard icon={<DollarSign size={18} color="#4f46e5" />} label="Tổng chi phí dự trù" value={fmt(totals.totalCost)} color="#4f46e5" />
         <KpiCard icon={<Fuel size={18} color="#0891b2" />} label="Chi phí xăng (KM)" value={fmt(totals.fuelCost)} sub={`${fmtKm(totals.km)} km × ${pricePerKm.toLocaleString('vi-VN')}₫`} color="#0891b2" />
         <KpiCard icon={<Receipt size={18} color="#7c3aed" />} label="Phụ phí đã chi" value={fmt(totals.feesPaid)} sub={totals.feesPending > 0 ? `+ ${fmt(totals.feesPending)} chờ duyệt` : undefined} color="#7c3aed" />
         <KpiCard icon={<Clock size={18} color="#d97706" />} label="Tổng giờ làm" value={`${Math.round(totals.hours * 10) / 10}h`} sub={`${totals.shiftCount} ca làm việc`} color="#d97706" />
@@ -273,7 +273,7 @@ export function AccountingDashboardPage() {
       {/* Driver Breakdown Table */}
       <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Users size={15} color="#059669" />
+          <Users size={15} color="#4f46e5" />
           <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Chi tiết theo giao nhận</span>
         </div>
 
@@ -347,14 +347,14 @@ export function AccountingDashboardPage() {
               </tbody>
               {/* Totals row */}
               <tfoot>
-                <tr style={{ background: '#f0fdf4', borderTop: '2px solid #059669' }}>
-                  <td style={{ ...td, fontWeight: 700, color: '#059669' }}>TỔNG CỘNG</td>
+                <tr style={{ background: '#e0e7ff', borderTop: '2px solid #4f46e5' }}>
+                  <td style={{ ...td, fontWeight: 700, color: '#4f46e5' }}>TỔNG CỘNG</td>
                   <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>{totals.shiftCount}</td>
                   <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>{Math.round(totals.hours * 10) / 10}h</td>
                   <td style={{ ...td, textAlign: 'center', fontWeight: 700 }}>{fmtKm(totals.km)} km</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#0891b2' }}>{fmt(totals.fuelCost)}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{fmt(totals.feesPaid + totals.feesApproved)}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, fontSize: 14, color: '#059669' }}>{fmt(totals.totalCost)}</td>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, fontSize: 14, color: '#4f46e5' }}>{fmt(totals.totalCost)}</td>
                 </tr>
               </tfoot>
             </table>

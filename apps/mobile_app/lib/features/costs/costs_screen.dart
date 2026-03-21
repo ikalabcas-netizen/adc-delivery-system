@@ -535,10 +535,11 @@ class _VouchersTabState extends State<_VouchersTab> {
       final uid = _supabase.auth.currentUser?.id;
       if (uid == null) return;
       final res = await _supabase.from('payment_vouchers').select('''
-        id, voucher_code, total_amount, status, note, paid_at, confirmed_at, created_at,
+        id, voucher_code, total_amount, status, note, type, paid_at, confirmed_at, created_at,
         items:payment_voucher_items(
           id, amount,
-          order:orders(id, code, delivery_location:locations!orders_delivery_location_id_fkey(id, name))
+          order:orders(id, code, delivery_location:locations!orders_delivery_location_id_fkey(id, name)),
+          shift:driver_shifts!payment_voucher_items_shift_id_fkey(id, started_at)
         )
       ''').eq('driver_id', uid).order('created_at', ascending: false);
       if (mounted) setState(() { _vouchers = List<Map<String, dynamic>>.from(res); _loading = false; });
@@ -627,7 +628,14 @@ class _VouchersTabState extends State<_VouchersTab> {
                         Row(children: [
                           Text(v['voucher_code'] as String,
                               style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: v['type'] == 'km_payment' ? const Color(0xFFDCFCE7) : const Color(0xFFFFEDD5), borderRadius: BorderRadius.circular(4)),
+                            child: Text(v['type'] == 'km_payment' ? 'KM' : 'Phụ phí',
+                                style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w700, color: v['type'] == 'km_payment' ? const Color(0xFF166534) : const Color(0xFF9A3412))),
+                          ),
+                          const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(color: cfg['bg'] as Color, borderRadius: BorderRadius.circular(20)),
@@ -654,15 +662,19 @@ class _VouchersTabState extends State<_VouchersTab> {
                 if (isExpanded) ...[
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   ...items.map((item) {
+                    final isKm = v['type'] == 'km_payment';
                     final order = item['order'] as Map? ?? {};
+                    final shift = item['shift'] as Map? ?? {};
                     final loc   = order['delivery_location'] as Map? ?? {};
+                    final shiftDate = shift['started_at'] != null ? DateFormat('dd/MM/yyyy').format(DateTime.parse(shift['started_at']).toLocal()) : '—';
+                    final title = isKm ? 'Ca làm việc $shiftDate' : '${order['code'] ?? '—'}  •  ${loc['name'] ?? '—'}';
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                       child: Row(children: [
                         const Icon(Icons.circle, size: 5, color: Color(0xFF94A3B8)),
                         const SizedBox(width: 10),
                         Expanded(child: Text(
-                          '${order['code'] ?? '—'}  •  ${loc['name'] ?? '—'}',
+                          title,
                           style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
                         )),
                         Text('${_fmt.format(item['amount'] ?? 0)} ₫',

@@ -107,6 +107,7 @@ export function MyLayout() {
 | Sales | Amber | `#f59e0b` |
 | Delivery | Emerald | `#10b981` |
 | Admin | Purple | `#8b5cf6` |
+| Accounting | Indigo | `#4f46e5` |
 
 ### Responsive Breakpoints
 
@@ -211,6 +212,7 @@ const ROLE_MAP = {
   sales:       { bg: '#ecfeff', color: '#0891b2', label: 'Kinh doanh' },
   manager:     { bg: '#f0fdf4', color: '#059669', label: 'Quản lý' },
   delivery:    { bg: '#fffbeb', color: '#d97706', label: 'Giao nhận' },
+  accountant:  { bg: '#e0e7ff', color: '#4338ca', label: 'Kế toán' },
 }
 
 const STATUS_MAP = {

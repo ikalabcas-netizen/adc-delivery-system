@@ -45,7 +45,7 @@ export function OdometerTrackingPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10,
-          background: 'linear-gradient(135deg, #059669, #10b981)',
+          background: 'linear-gradient(135deg, #4f46e5, #4338ca)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Gauge size={20} color="#fff" />
@@ -70,7 +70,7 @@ export function OdometerTrackingPage() {
               padding: '5px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer',
               fontFamily: 'Outfit, sans-serif',
               border: period === p ? 'none' : '1px solid #e2e8f0',
-              background: period === p ? '#059669' : '#fff',
+              background: period === p ? '#4f46e5' : '#fff',
               color: period === p ? '#fff' : '#64748b',
             }}>{labels[p]}</button>
           )
