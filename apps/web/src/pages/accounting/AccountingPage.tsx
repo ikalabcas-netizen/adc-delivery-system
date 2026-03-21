@@ -375,21 +375,6 @@ export function AccountingPage() {
     })
   }, [fees, datePreset, dateFrom, dateTo])
 
-  // Stats — use computePaymentStatus for accurate numbers
-  const stats = useMemo(() => {
-    let pending = 0, approved = 0, paid = 0, total = 0
-    for (const o of dateFees) {
-      const ps = computePaymentStatus(o)
-      const amt = o.extra_fee ?? 0
-      if (ps === 'pending') pending += amt
-      if (ps === 'approved') approved += amt
-      if (ps === 'approved_paid') paid += amt
-      // 'Phụ phí tổng' excludes rejected
-      if (ps !== 'rejected') total += amt
-    }
-    return { pending, approved, paid, total }
-  }, [dateFees])
-
   // Counts per payment status
   const counts = useMemo(() => {
     const c: Record<string, number> = { pending: 0, approved: 0, approved_vouchered: 0, approved_paid: 0, rejected: 0 }
@@ -412,6 +397,20 @@ export function AccountingPage() {
     if (driverFilter !== 'all') list = list.filter(f => f.assigned_driver?.id === driverFilter)
     return list
   }, [dateFees, feeFilter, driverFilter])
+
+  // Stats — computed from filteredFees so they react to ALL filters
+  const stats = useMemo(() => {
+    let pending = 0, approved = 0, paid = 0, total = 0
+    for (const o of filteredFees) {
+      const ps = computePaymentStatus(o)
+      const amt = o.extra_fee ?? 0
+      if (ps === 'pending') pending += amt
+      if (ps === 'approved') approved += amt
+      if (ps === 'approved_paid') paid += amt
+      if (ps !== 'rejected') total += amt
+    }
+    return { pending, approved, paid, total }
+  }, [filteredFees])
 
   // Selection logic
   const selectedOrders = dateFees.filter(f => selected.has(f.id))
@@ -475,6 +474,23 @@ export function AccountingPage() {
         )}
       </div>
 
+      {/* Status + Driver Filters */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {filterChips.map(({ key, label }) => (
+            <button key={key} onClick={() => setFeeFilter(key)}
+              style={{ padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: feeFilter === key ? 'none' : '1px solid #e2e8f0', background: feeFilter === key ? '#059669' : '#fff', color: feeFilter === key ? '#fff' : '#64748b', ...F }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <select value={driverFilter} onChange={e => setDriverFilter(e.target.value)}
+          style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', ...F, background: '#fff', cursor: 'pointer', marginLeft: 'auto' }}>
+          <option value="all">— Tất cả giao nhận —</option>
+          {drivers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+        </select>
+      </div>
+
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
         {[
@@ -505,38 +521,19 @@ export function AccountingPage() {
       {/* ── TAB 1: Fees ── */}
       {tab === 'fees' && (
         <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Filter chips */}
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-              {filterChips.map(({ key, label }) => (
-                <button key={key} onClick={() => setFeeFilter(key)}
-                  style={{ padding: '5px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: feeFilter === key ? 'none' : '1px solid #e2e8f0', background: feeFilter === key ? '#059669' : '#fff', color: feeFilter === key ? '#fff' : '#64748b', ...F }}>
-                  {label}
-                </button>
-              ))}
+          {/* Voucher create action */}
+          {selected.size > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              {hasNonApproved && <span style={{ fontSize: 11, color: '#d97706' }}>⚠️ Bỏ chọn đơn đã trong chứng từ</span>}
+              <button onClick={() => createVouchers.mutate({ selectedIds: selected })}
+                disabled={createVouchers.isPending || hasNonApproved}
+                style={{ padding: '6px 14px', borderRadius: 10, background: hasNonApproved ? '#94a3b8' : '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: hasNonApproved ? 'not-allowed' : 'pointer', ...F }}>
+                {createVouchers.isPending
+                  ? 'Đang tạo...'
+                  : `Tạo ${selectedDriverCount > 1 ? selectedDriverCount + ' chứng từ' : 'chứng từ'} (${selected.size} đơn)`}
+              </button>
             </div>
-
-            {/* Driver filter */}
-            <select value={driverFilter} onChange={e => setDriverFilter(e.target.value)}
-              style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, color: '#475569', ...F, background: '#fff', cursor: 'pointer' }}>
-              <option value="all">— Tất cả giao nhận —</option>
-              {drivers.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-            </select>
-
-            {/* Voucher create action */}
-            {selected.size > 0 && (
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                {hasNonApproved && <span style={{ fontSize: 11, color: '#d97706' }}>⚠️ Bỏ chọn đơn đã trong chứng từ</span>}
-                <button onClick={() => createVouchers.mutate({ selectedIds: selected })}
-                  disabled={createVouchers.isPending || hasNonApproved}
-                  style={{ padding: '6px 14px', borderRadius: 10, background: hasNonApproved ? '#94a3b8' : '#059669', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: hasNonApproved ? 'not-allowed' : 'pointer', ...F }}>
-                  {createVouchers.isPending
-                    ? 'Đang tạo...'
-                    : `Tạo ${selectedDriverCount > 1 ? selectedDriverCount + ' chứng từ' : 'chứng từ'} (${selected.size} đơn)`}
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
           {feesLoading ? (
             <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', ...F }}>Đang tải...</div>

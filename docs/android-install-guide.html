@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hướng dẫn cài đặt ADC Delivery trên Android</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Outfit', sans-serif; color: #1e293b; background: #fff; padding: 40px 50px; max-width: 800px; margin: 0 auto; line-height: 1.7; }
+  h1 { font-size: 28px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 30px; }
+  h2 { font-size: 18px; font-weight: 700; color: #059669; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #d1fae5; }
+  h3 { font-size: 14px; font-weight: 700; color: #0f172a; margin: 18px 0 8px; }
+  p { font-size: 13px; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+  th { background: #f0fdf4; color: #059669; text-align: left; padding: 8px 12px; font-weight: 700; border: 1px solid #d1fae5; }
+  td { padding: 8px 12px; border: 1px solid #e2e8f0; }
+  .info-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 12px; color: #059669; }
+  .warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 12px; color: #92400e; }
+  ol { padding-left: 20px; margin: 8px 0 12px; }
+  ol li { font-size: 13px; margin-bottom: 5px; }
+  .link { color: #059669; text-decoration: underline; word-break: break-all; font-weight: 600; }
+  .badge { display: inline-block; background: #059669; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 12px; }
+  .header-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .logo { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #059669, #047857); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20px; font-weight: 700; }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+  @media print { body { padding: 20px 30px; } }
+</style>
+</head>
+<body>
+
+<div class="header-bar">
+  <div class="logo">ADC</div>
+  <div>
+    <h1>📱 Hướng dẫn cài đặt ADC Delivery</h1>
+    <div class="subtitle">Ứng dụng giao nhận dành cho điện thoại Android</div>
+  </div>
+</div>
+
+<h2>📋 Thông tin phiên bản</h2>
+<table>
+  <tr><th>Phiên bản</th><th>Ngày phát hành</th><th>Dung lượng</th><th>Tối ưu</th></tr>
+  <tr><td><span class="badge">v1.0.0</span></td><td>21/03/2026</td><td>~19 MB</td><td>R8 + Split ABI</td></tr>
+</table>
+
+<h2>🔗 Link tải APK</h2>
+<div class="info-box">
+  💡 <strong>Hầu hết smartphone hiện đại</strong> (Samsung, Xiaomi, OPPO, Vivo từ 2017 trở lên) dùng phiên bản <strong>ARM64</strong>.
+</div>
+
+<table>
+  <tr><th>Loại thiết bị</th><th>Link tải</th></tr>
+  <tr>
+    <td>📱 <strong>Smartphone hiện đại</strong> (arm64)</td>
+    <td><a class="link" href="https://cmvaedfbmwjqfpsrdhdi.supabase.co/storage/v1/object/public/app-releases/android/v1.0.0/adc-delivery-v1.0.0-arm64-v8a.apk">Tải APK ARM64 (19 MB)</a></td>
+  </tr>
+  <tr>
+    <td>📟 <strong>Smartphone cũ</strong> (armeabi-v7a)</td>
+    <td><a class="link" href="https://cmvaedfbmwjqfpsrdhdi.supabase.co/storage/v1/object/public/app-releases/android/v1.0.0/adc-delivery-v1.0.0-armeabi-v7a.apk">Tải APK ARMv7 (17 MB)</a></td>
+  </tr>
+</table>
+
+<h2>📲 Các bước cài đặt</h2>
+
+<h3>Bước 1: Bật "Cài đặt từ nguồn không xác định"</h3>
+<p>Vì ứng dụng chưa đưa lên Google Play Store, bạn cần cho phép cài từ bên ngoài:</p>
+<ol>
+  <li>Mở <strong>Cài đặt</strong> (Settings) trên điện thoại</li>
+  <li>Tìm <strong>Bảo mật</strong> (Security) hoặc <strong>Quyền riêng tư</strong> (Privacy)</li>
+  <li>Bật <strong>"Nguồn không xác định"</strong> (Unknown sources)</li>
+</ol>
+<div class="info-box">
+  💡 <strong>Android 8.0 trở lên:</strong> Hệ thống sẽ hỏi riêng cho từng ứng dụng. Khi tải bằng Chrome, chỉ cần nhấn <strong>"Cho phép"</strong> khi được hỏi.
+</div>
+
+<h3>Bước 2: Tải file APK</h3>
+<ol>
+  <li>Mở <strong>trình duyệt Chrome</strong> trên điện thoại</li>
+  <li>Nhấn vào <strong>link tải APK</strong> phía trên (hoặc quét mã QR nếu có)</li>
+  <li>Nếu Chrome cảnh báo <em>"Loại file này có thể gây hại..."</em>, nhấn <strong>"Tải xuống"</strong></li>
+  <li>Đợi tải xong (khoảng 10-30 giây tuỳ tốc độ mạng)</li>
+</ol>
+
+<h3>Bước 3: Cài đặt APK</h3>
+<ol>
+  <li>Khi tải xong, nhấn vào <strong>thông báo "Tải xuống hoàn tất"</strong> ở thanh trạng thái<br>
+    <em>Hoặc mở app Quản lý file → thư mục Downloads</em></li>
+  <li>Nhấn vào file <strong>adc-delivery-v1.0.0-arm64-v8a.apk</strong></li>
+  <li>Nhấn <strong>"Cài đặt"</strong> (Install)</li>
+  <li>Đợi cài đặt hoàn tất → nhấn <strong>"Mở"</strong> (Open)</li>
+</ol>
+
+<h3>Bước 4: Đăng nhập</h3>
+<ol>
+  <li>Mở ứng dụng <strong>ADC Delivery</strong></li>
+  <li>Nhập <strong>email</strong> và <strong>mật khẩu</strong> do quản trị viên cấp</li>
+  <li>Nhấn <strong>Đăng nhập</strong></li>
+</ol>
+
+<h2>⚠️ Xử lý sự cố</h2>
+<table>
+  <tr><th>Lỗi</th><th>Cách khắc phục</th></tr>
+  <tr><td><em>"Blocked by Play Protect"</em></td><td>Nhấn <strong>"Install anyway"</strong> (Vẫn cài đặt)</td></tr>
+  <tr><td><em>"App not installed"</em></td><td>Gỡ phiên bản cũ trước → cài lại</td></tr>
+  <tr><td><em>"Parse error"</em></td><td>Tải nhầm phiên bản → thử link tải còn lại</td></tr>
+  <tr><td>Không mở được file</td><td>Cài app <strong>"Files by Google"</strong> từ Play Store</td></tr>
+</table>
+
+<h2>🔄 Cập nhật phiên bản mới</h2>
+<p>Khi có phiên bản mới, quản trị viên sẽ gửi link tải mới. Cài đặt trực tiếp <strong>đè lên</strong> phiên bản cũ mà không mất dữ liệu đăng nhập.</p>
+
+<div class="footer">
+  ADC Delivery System &bull; Phiên bản 1.0.0 &bull; 21/03/2026<br>
+  Liên hệ hỗ trợ: admin@adc-delivery.com
+</div>
+
+</body>
+</html>
