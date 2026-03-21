@@ -242,7 +242,7 @@ function LocationModal({ location, onClose }: { location: Location | null; onClo
       }
     }
     init()
-    return () => { if (map) try { map.remove() } catch {} }
+    return () => { if (map) try { map.remove() } catch (e) { console.debug(e) } }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

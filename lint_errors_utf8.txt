@@ -1,0 +1,36 @@
+﻿
+> @adc/web@1.0.0 lint
+> eslint src --ext ts,tsx --report-unused-disable-directives
+
+
+C:\Users\ASUS\.gemini\antigravity\scratch\adc-delivery-system\apps\web\src\components\order\OrderDetailModal.tsx
+  63:6  warning  React Hook useEffect has a missing dependency: 'order'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\ASUS\.gemini\antigravity\scratch\adc-delivery-system\apps\web\src\pages\coordinator\LocationsPage.tsx
+  245:56  error  Empty block statement  no-empty
+
+C:\Users\ASUS\.gemini\antigravity\scratch\adc-delivery-system\apps\web\src\pages\coordinator\MapPage.tsx
+  35:9   warning  The 'routeColorMap' object construction makes the dependencies of useEffect Hook (at line 168) change on every render. Move it inside the useEffect callback. Alternatively, wrap the initialization of 'routeColorMap' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  74:36  error    Empty block statement                                                                                                                                                                                                                              no-empty
+
+Γ£û 4 problems (2 errors, 2 warnings)
+
+node.exe : npm error Lifecycle script `lint` failed with error:
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~
+    + CategoryInfo          : NotSpecified: (npm error Lifec...led  
+   with error::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+npm error code 1
+npm error path C:\Users\ASUS\.gemini\antigravity\scratch\adc-deliver
+y-system\apps\web
+npm error workspace @adc/web@1.0.0
+npm error location C:\Users\ASUS\.gemini\antigravity\scratch\adc-del
+ivery-system\apps\web
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c eslint src 
+--ext ts,tsx --report-unused-disable-directives

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Layers, Navigation, Package } from 'lucide-react'
 import { useOrders } from '@/hooks/useOrders'
 import { useLocations } from '@/hooks/useLocations'
@@ -32,7 +32,7 @@ export function MapPage() {
   const { data: routes = [] } = useDeliveryRoutes()
 
   // Build route color map
-  const routeColorMap = new Map(routes.map(r => [r.id, r]))
+  const routeColorMap = useMemo(() => new Map(routes.map(r => [r.id, r])), [routes])
 
   // Initialize map
   useEffect(() => {
@@ -71,7 +71,7 @@ export function MapPage() {
 
     return () => {
       if (map) {
-        try { map.remove() } catch {}
+        try { map.remove() } catch (e) { console.debug(e) }
       }
     }
   }, [])
