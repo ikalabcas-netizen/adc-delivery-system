@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { Gauge, Calendar, Filter, TrendingDown, TrendingUp, Navigation, Truck } from 'lucide-react'
+import { Gauge, Calendar, Filter, TrendingDown, TrendingUp, Navigation, Truck, DollarSign } from 'lucide-react'
 import { useOdometerTracking, useDriversList, OdometerFilters } from '@/hooks/useOdometerTracking'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 
 type Period = OdometerFilters['period']
 
@@ -21,6 +23,21 @@ export function OdometerTrackingPage() {
   const { data, isLoading } = useOdometerTracking(filters)
   const records = data?.records ?? []
   const summary = data?.summary
+
+  // Accounting config for cost estimation
+  const { data: configData } = useQuery({
+    queryKey: ['accounting-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_settings').select('key, value')
+        .eq('key', 'accounting_config').maybeSingle()
+      if (error) throw error
+      return data?.value as Record<string, any> ?? {}
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+  const pricePerKm = (configData?.price_per_km as number) ?? 3500
+  const fmt = (n: number) => n.toLocaleString('vi-VN') + ' ₫'
 
   return (
     <div style={{ fontFamily: 'Outfit, sans-serif', maxWidth: 960 }}>
@@ -112,6 +129,13 @@ export function OdometerTrackingPage() {
             sub={`km (${summary.differencePct > 0 ? '+' : ''}${summary.differencePct}%)`}
             color={Math.abs(summary.differencePct) > 20 ? '#e11d48' : '#059669'}
           />
+          <SummaryCard
+            icon={<DollarSign size={18} color="#059669" />}
+            label="Chi phí KM dự trù"
+            value={summary.totalActualKm > 0 ? fmt(Math.round(summary.totalActualKm * pricePerKm)) : '—'}
+            sub={`${pricePerKm.toLocaleString('vi-VN')} ₫/km`}
+            color="#059669"
+          />
         </div>
       )}
 
@@ -140,6 +164,7 @@ export function OdometerTrackingPage() {
                   <th style={thStyle}>KM thực tế</th>
                   <th style={thStyle}>KM tối ưu (PM)</th>
                   <th style={thStyle}>Chênh lệch</th>
+                  <th style={thStyle}>Chi phí KM</th>
                 </tr>
               </thead>
               <tbody>
@@ -191,6 +216,9 @@ export function OdometerTrackingPage() {
                       ) : (
                         <span style={{ color: '#cbd5e1' }}>—</span>
                       )}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: '#059669', fontVariantNumeric: 'tabular-nums' }}>
+                      {r.actual_km != null ? fmt(Math.round(r.actual_km * pricePerKm)) : <span style={{ color: '#cbd5e1' }}>—</span>}
                     </td>
                   </tr>
                 ))}

@@ -1,11 +1,37 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Receipt, CheckCircle, DollarSign, Clock, X, ZoomIn, ChevronDown, ChevronUp } from 'lucide-react'
+import { Receipt, CheckCircle, DollarSign, Clock, X, ZoomIn, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 const fmt = (n: number) => n.toLocaleString('vi-VN') + ' ₫'
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 const F = { fontFamily: 'Outfit, sans-serif' }
+
+// ── Date helpers ────────────────────────────────────────
+function toLocalDateStr(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function getDatePreset(preset: string): { from: string; to: string } {
+  const today = new Date()
+  const to = toLocalDateStr(today)
+  if (preset === 'today') return { from: to, to }
+  if (preset === 'week') {
+    const d = new Date(today)
+    d.setDate(d.getDate() - d.getDay() + 1) // Monday
+    return { from: toLocalDateStr(d), to }
+  }
+  if (preset === 'month') {
+    const d = new Date(today.getFullYear(), today.getMonth(), 1)
+    return { from: toLocalDateStr(d), to }
+  }
+  return { from: '', to: '' }
+}
+
+type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom'
 
 // ── Payment status helper ──────────────────────────────
 // pending | approved | approved_vouchered | approved_paid | rejected
@@ -311,10 +337,24 @@ type FeeFilter = 'all' | 'pending' | 'approved' | 'approved_vouchered' | 'approv
 
 export function AccountingPage() {
   const [tab, setTab] = useState<'fees' | 'vouchers'>('fees')
-  const [feeFilter, setFeeFilter] = useState<FeeFilter>('pending')
+  const [feeFilter, setFeeFilter] = useState<FeeFilter>('all')
   const [driverFilter, setDriverFilter] = useState<string>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [expandedVoucher, setExpandedVoucher] = useState<string | null>(null)
+
+  // Date range filter
+  const [datePreset, setDatePreset] = useState<DatePreset>('month')
+  const [dateFrom, setDateFrom] = useState(() => getDatePreset('month').from)
+  const [dateTo, setDateTo] = useState(() => getDatePreset('month').to)
+
+  const handleDatePreset = useCallback((preset: DatePreset) => {
+    setDatePreset(preset)
+    if (preset !== 'custom' && preset !== 'all') {
+      const { from, to } = getDatePreset(preset)
+      setDateFrom(from)
+      setDateTo(to)
+    }
+  }, [])
 
   const { data: fees = [], isLoading: feesLoading } = useFees()
   const { data: vouchers = [], isLoading: vouchersLoading } = useVouchers()
@@ -322,43 +362,65 @@ export function AccountingPage() {
   const createVouchers = useCreateVouchers(() => setSelected(new Set()))
   const markPaid = useMarkPaid()
 
-  // Stats
-  const stats = useMemo(() => ({
-    pending:  fees.filter(o => o.extra_fee_status === 'pending').reduce((s: number, o: any) => s + (o.extra_fee ?? 0), 0),
-    approved: fees.filter(o => o.extra_fee_status === 'approved').reduce((s: number, o: any) => s + (o.extra_fee ?? 0), 0),
-  }), [fees])
+  // Date-filtered fees
+  const dateFees = useMemo(() => {
+    if (datePreset === 'all') return fees
+    if (!dateFrom) return fees
+    const from = new Date(dateFrom + 'T00:00:00')
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : new Date()
+    return fees.filter(o => {
+      const d = o.delivered_at ? new Date(o.delivered_at) : null
+      if (!d) return false
+      return d >= from && d <= to
+    })
+  }, [fees, datePreset, dateFrom, dateTo])
+
+  // Stats — use computePaymentStatus for accurate numbers
+  const stats = useMemo(() => {
+    let pending = 0, approved = 0, paid = 0, total = 0
+    for (const o of dateFees) {
+      const ps = computePaymentStatus(o)
+      const amt = o.extra_fee ?? 0
+      if (ps === 'pending') pending += amt
+      if (ps === 'approved') approved += amt
+      if (ps === 'approved_paid') paid += amt
+      // 'Phụ phí tổng' excludes rejected
+      if (ps !== 'rejected') total += amt
+    }
+    return { pending, approved, paid, total }
+  }, [dateFees])
 
   // Counts per payment status
   const counts = useMemo(() => {
     const c: Record<string, number> = { pending: 0, approved: 0, approved_vouchered: 0, approved_paid: 0, rejected: 0 }
-    for (const f of fees) { const ps = computePaymentStatus(f); c[ps] = (c[ps] ?? 0) + 1 }
+    for (const f of dateFees) { const ps = computePaymentStatus(f); c[ps] = (c[ps] ?? 0) + 1 }
     return c
-  }, [fees])
+  }, [dateFees])
 
   // All unique drivers
   const drivers = useMemo(() => {
     const seen = new Map<string, string>()
-    for (const o of fees) {
+    for (const o of dateFees) {
       if (o.assigned_driver?.id) seen.set(o.assigned_driver.id, o.assigned_driver.full_name ?? '—')
     }
     return Array.from(seen.entries())
-  }, [fees])
+  }, [dateFees])
 
   // Filtered fees
   const filteredFees = useMemo(() => {
-    let list = feeFilter === 'all' ? fees : fees.filter(f => computePaymentStatus(f) === feeFilter)
+    let list = feeFilter === 'all' ? dateFees : dateFees.filter(f => computePaymentStatus(f) === feeFilter)
     if (driverFilter !== 'all') list = list.filter(f => f.assigned_driver?.id === driverFilter)
     return list
-  }, [fees, feeFilter, driverFilter])
+  }, [dateFees, feeFilter, driverFilter])
 
   // Selection logic
-  const selectedOrders = fees.filter(f => selected.has(f.id))
+  const selectedOrders = dateFees.filter(f => selected.has(f.id))
   const hasNonApproved = selectedOrders.some(o => computePaymentStatus(o) !== 'approved')
   const selectedDriverCount = useMemo(() => new Set(selectedOrders.map(o => o.assigned_driver?.id).filter(Boolean)).size, [selectedOrders])
   const toggleSelect = (id: string) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
   const filterChips: { key: FeeFilter; label: string }[] = [
-    { key: 'all',               label: `Tất cả (${fees.length})` },
+    { key: 'all',               label: `Tất cả (${dateFees.length})` },
     { key: 'pending',           label: `⏳ Chờ duyệt (${counts.pending})` },
     { key: 'approved',          label: `✅ Đã duyệt (${counts.approved})` },
     { key: 'approved_vouchered',label: `📋 Trong CT (${counts.approved_vouchered})` },
@@ -379,14 +441,49 @@ export function AccountingPage() {
         </div>
       </div>
 
+      {/* Date Filter */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <Calendar size={15} color="#94a3b8" />
+        {[
+          { key: 'all' as DatePreset, label: 'Tất cả' },
+          { key: 'today' as DatePreset, label: 'Hôm nay' },
+          { key: 'week' as DatePreset, label: 'Tuần này' },
+          { key: 'month' as DatePreset, label: 'Tháng này' },
+          { key: 'custom' as DatePreset, label: 'Tuỳ chọn' },
+        ].map(p => (
+          <button key={p.key} onClick={() => handleDatePreset(p.key)}
+            style={{
+              padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', ...F, transition: 'all 0.15s ease',
+              border: datePreset === p.key ? 'none' : '1px solid #e2e8f0',
+              background: datePreset === p.key ? '#0891b2' : '#fff',
+              color: datePreset === p.key ? '#fff' : '#64748b',
+            }}>
+            {p.label}
+          </button>
+        ))}
+        {(datePreset === 'custom' || datePreset !== 'all') && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input type="date" value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setDatePreset('custom') }}
+              style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, ...F, color: '#475569', background: '#fff' }} />
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>→</span>
+            <input type="date" value={dateTo}
+              onChange={e => { setDateTo(e.target.value); setDatePreset('custom') }}
+              style={{ padding: '5px 8px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12, ...F, color: '#475569', background: '#fff' }} />
+          </div>
+        )}
+      </div>
+
       {/* Stats */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 20 }}>
         {[
           { icon: <Clock size={16} color="#d97706" />, label: 'Chờ duyệt', value: fmt(stats.pending), color: '#d97706' },
           { icon: <CheckCircle size={16} color="#059669" />, label: 'Đã duyệt chưa chi', value: fmt(stats.approved), color: '#059669' },
-          { icon: <DollarSign size={16} color="#0891b2" />, label: 'Phụ phí tổng', value: fmt(fees.reduce((s: number, o: any) => s + (o.extra_fee ?? 0), 0)), color: '#0891b2' },
+          { icon: <Receipt size={16} color="#7c3aed" />, label: 'Đã chi trả', value: fmt(stats.paid), color: '#7c3aed' },
+          { icon: <DollarSign size={16} color="#0891b2" />, label: 'Phụ phí tổng', value: fmt(stats.total), color: '#0891b2' },
         ].map(s => (
-          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid #e2e8f0', display: 'flex', gap: 10, alignItems: 'center', flex: '1 1 140px' }}>
+          <div key={s.label} style={{ background: '#fff', borderRadius: 12, padding: '12px 16px', border: '1px solid #e2e8f0', display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{ width: 34, height: 34, borderRadius: 9, background: `${s.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{s.icon}</div>
             <div>
               <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{s.value}</div>

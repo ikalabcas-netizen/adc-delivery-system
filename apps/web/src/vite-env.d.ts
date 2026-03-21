@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY: string
   readonly VITE_MAPBOX_TOKEN: string
   readonly VITE_ORS_API_KEY: string
+  readonly VITE_HERE_API_KEY?: string
+  readonly VITE_GOOGLE_MAPS_API_KEY?: string
   readonly VITE_APP_NAME: string
 }
 
