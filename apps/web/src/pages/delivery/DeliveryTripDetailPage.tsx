@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { compressImage } from '@/utils/imageCompressor'
 import { stampImage } from '@/utils/imageStamp'
+import { calcOptimizedRoute, ordersToWaypoints } from '@/lib/routeOptimizer'
 
 // ─── Types ───────────────────────────────────────────────────
 type OrderRow = {
@@ -55,6 +56,10 @@ export function DeliveryTripDetailPage() {
   // Modal state
   const [completeModal, setCompleteModal] = useState<OrderRow | null>(null)
   const [failModal,     setFailModal]     = useState<OrderRow | null>(null)
+  const [optimizing,    setOptimizing]    = useState(false)
+  const [routeInfo,     setRouteInfo]     = useState<{ km: number; min: number } | null>(
+    trip != null && trip.optimized_distance_km ? { km: Number(trip.optimized_distance_km), min: trip.optimized_duration_min ?? 0 } : null
+  )
 
   // ── Fetch trip + orders ──────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -67,8 +72,8 @@ export function DeliveryTripDetailPage() {
           id, code, status, note, delivery_proof_url,
           extra_fee, extra_fee_note, extra_fee_status, rejection_note,
           trip_id, delivered_at, created_at,
-          pickup_location:locations!orders_pickup_location_id_fkey(id, name, address, phone),
-          delivery_location:locations!orders_delivery_location_id_fkey(id, name, address, phone)
+          pickup_location:locations!orders_pickup_location_id_fkey(id, name, address, phone, lat, lng),
+          delivery_location:locations!orders_delivery_location_id_fkey(id, name, address, phone, lat, lng)
         `)
         .eq('trip_id', tripId)
         .order('created_at', { ascending: true }),
@@ -80,10 +85,30 @@ export function DeliveryTripDetailPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // ── Auto-recalculate route when orders change ─────────
+  const recalcRoute = async (orderList: OrderRow[]) => {
+    const active = orderList.filter(o => o.status === 'in_transit')
+    if (active.length === 0) return
+    const waypoints = ordersToWaypoints(active)
+    if (waypoints.length < 2) return
+    const result = await calcOptimizedRoute(waypoints)
+    await supabase.from('trips').update({
+      optimized_distance_km: result.optimized_distance_km,
+      optimized_duration_min: result.optimized_duration_min,
+    }).eq('id', tripId!)
+    setRouteInfo({ km: result.optimized_distance_km, min: result.optimized_duration_min })
+  }
+
   // ── After any order action: refresh + auto-complete trip ──
   const afterOrderAction = async () => {
     setCompleteModal(null)
     setFailModal(null)
+    const { data: freshOrders } = await supabase.from('orders')
+      .select('id, status, delivery_location:locations!orders_delivery_location_id_fkey(id, name, lat, lng)')
+      .eq('trip_id', tripId!)
+    if (freshOrders) {
+      await recalcRoute(freshOrders as unknown as OrderRow[])
+    }
     await fetchData()
 
     // Mirror TripService.checkAndCompleteTrip — close trip when no order is in_transit
@@ -151,6 +176,44 @@ export function DeliveryTripDetailPage() {
           <RefreshCw size={18} />
         </button>
       </div>
+
+      {/* Route optimization info + button */}
+      {!isCompleted && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 14px', marginBottom: 12,
+          background: routeInfo ? '#ecfeff' : '#f8fafc',
+          borderRadius: 12, border: `1px solid ${routeInfo ? '#a5f3fc' : '#e2e8f0'}`,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Navigation size={15} color="#0891b2" />
+            {routeInfo ? (
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#0891b2' }}>
+                {routeInfo.km} km · ~{routeInfo.min} phút
+              </span>
+            ) : (
+              <span style={{ fontSize: 12, color: '#94a3b8' }}>Chưa tính tuyến tối ưu</span>
+            )}
+          </div>
+          <button
+            onClick={async () => {
+              setOptimizing(true)
+              await recalcRoute(orders.filter(o => o.status === 'in_transit'))
+              setOptimizing(false)
+            }}
+            disabled={optimizing || orders.filter(o => o.status === 'in_transit').length < 2}
+            style={{
+              padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
+              background: optimizing ? '#e2e8f0' : '#0891b2',
+              color: optimizing ? '#94a3b8' : '#fff',
+              fontSize: 12, fontWeight: 700, fontFamily: 'Outfit, sans-serif',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            {optimizing ? 'Đang tính...' : <><Navigation size={12} /> Tối ưu tuyến</>}
+          </button>
+        </div>
+      )}
 
       {/* Trip status badge */}
       <div style={{

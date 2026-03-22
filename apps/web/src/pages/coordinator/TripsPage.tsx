@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react'
-import { Truck, Calendar, ChevronDown, ChevronUp, Package, CheckCircle, Clock, CalendarRange, Navigation } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { Truck, Calendar, ChevronDown, ChevronUp, Package, CheckCircle, Clock, CalendarRange, Navigation, Plus, X, Search } from 'lucide-react'
 import { useTrips, TripFilters } from '@/hooks/useTrips'
 import type { Trip, TripStatus, Order } from '@adc/shared-types'
+import { supabase } from '@/lib/supabase'
+import { calcOptimizedRoute, ordersToWaypoints } from '@/lib/routeOptimizer'
 
 // ── Status config ──────────────────────────────────────
 const STATUS_CFG: Record<TripStatus, { label: string; bg: string; color: string; dot: string }> = {
@@ -142,6 +144,7 @@ export function TripsPage() {
 // ── Trip Card ──────────────────────────────────────────
 function TripCard({ trip }: { trip: Trip }) {
   const [expanded, setExpanded] = useState(false)
+  const [addOrderOpen, setAddOrderOpen] = useState(false)
   const status  = STATUS_CFG[trip.status] ?? STATUS_CFG.active
   const driver  = trip.driver
   const orders  = (trip.orders ?? []) as Order[]
@@ -221,7 +224,7 @@ function TripCard({ trip }: { trip: Trip }) {
           )}
         </div>
 
-        {/* Right — time + expand */}
+        {/* Right — time + expand + add-order button */}
         <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#cbd5e1' }}>
             <Calendar size={11} />
@@ -232,6 +235,20 @@ function TripCard({ trip }: { trip: Trip }) {
               <Clock size={11} />
               {dur}
             </div>
+          )}
+          {trip.status === 'active' && (
+            <button
+              onClick={e => { e.stopPropagation(); setAddOrderOpen(true) }}
+              title="Thêm đơn vào chuyến"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                background: '#0891b2', color: '#fff', fontSize: 11, fontWeight: 700,
+                fontFamily: 'Outfit, sans-serif',
+              }}
+            >
+              <Plus size={12} /> Thêm đơn
+            </button>
           )}
           <div style={{ color: '#94a3b8', marginTop: 2 }}>
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -286,6 +303,184 @@ function TripCard({ trip }: { trip: Trip }) {
           )}
         </div>
       )}
+
+      {/* Add Order Modal */}
+      {addOrderOpen && (
+        <AddOrderModal
+          tripId={trip.id}
+          driverId={(trip as any).driver_id ?? ''}
+          onClose={() => setAddOrderOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── AddOrderModal ────────────────────────────────────
+interface AddOrderModalProps {
+  tripId: string
+  driverId: string
+  onClose: () => void
+}
+
+function AddOrderModal({ tripId, driverId, onClose }: AddOrderModalProps) {
+  const [search,    setSearch]    = useState('')
+  const [orders,    setOrders]    = useState<any[]>([])
+  const [loading,   setLoading]   = useState(false)
+  const [adding,    setAdding]    = useState<string | null>(null)
+  const [done,      setDone]      = useState<string[]>([])
+
+  // Load pending orders
+  useEffect(() => {
+    setLoading(true)
+    supabase.from('orders')
+      .select(`
+        id, code, note, created_at,
+        delivery_location:locations!orders_delivery_location_id_fkey(id, name, address, lat, lng)
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => { setOrders(data ?? []); setLoading(false) })
+  }, [])
+
+  const filtered = orders.filter(o =>
+    !done.includes(o.id) &&
+    (o.code?.toLowerCase().includes(search.toLowerCase()) ||
+     o.delivery_location?.name?.toLowerCase().includes(search.toLowerCase()))
+  )
+
+  const handleAdd = async (order: any) => {
+    setAdding(order.id)
+    try {
+      // 1. Assign order to trip
+      await supabase.from('orders').update({
+        status:      'in_transit',
+        trip_id:     tripId,
+        assigned_to: driverId,
+      }).eq('id', order.id)
+
+      // 2. Fetch all trip orders for route recalc
+      const { data: tripOrders } = await supabase.from('orders')
+        .select('id, status, delivery_location:locations!orders_delivery_location_id_fkey(id, name, lat, lng)')
+        .eq('trip_id', tripId)
+        .not('status', 'in', '(cancelled)')
+
+      // 3. Recalc route
+      if (tripOrders && tripOrders.length >= 2) {
+        const waypoints = ordersToWaypoints(tripOrders as any[])
+        if (waypoints.length >= 2) {
+          const result = await calcOptimizedRoute(waypoints)
+          await supabase.from('trips').update({
+            optimized_distance_km: result.optimized_distance_km,
+            optimized_duration_min: result.optimized_duration_min,
+          }).eq('id', tripId)
+        }
+      }
+
+      setDone(d => [...d, order.id])
+    } finally {
+      setAdding(null)
+    }
+  }
+
+  const F = { fontFamily: 'Outfit, sans-serif' }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }} onClick={onClose}>
+      <div style={{
+        background: '#fff', borderRadius: 18, width: '100%', maxWidth: 480,
+        maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden',
+      }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{
+          padding: '16px 18px', borderBottom: '1px solid #f1f5f9',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Plus size={16} color="#0891b2" />
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', ...F }}>Thêm đơn vào chuyến</span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: '10px 18px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', borderRadius: 10, padding: '8px 12px' }}>
+            <Search size={14} color="#94a3b8" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Tìm mã đơn hoặc địa điểm..."
+              style={{ flex: 1, border: 'none', background: 'none', fontSize: 13, color: '#0f172a', outline: 'none', ...F }}
+            />
+          </div>
+        </div>
+
+        {/* Order list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 12px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 13, ...F }}>Đang tải...</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 13, ...F }}>
+              Không có đơn chờ nhận nào
+            </div>
+          ) : filtered.map(o => {
+            const isDone = done.includes(o.id)
+            const isAdding = adding === o.id
+            return (
+              <div key={o.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 8px', borderRadius: 10,
+                background: isDone ? '#f0fdf4' : '#fff',
+                border: isDone ? '1px solid #bbf7d0' : '1px solid transparent',
+                marginBottom: 4, transition: 'all 0.15s',
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{o.code}</span>
+                  {o.delivery_location?.name && (
+                    <p style={{ fontSize: 11, color: '#64748b', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      📍 {o.delivery_location.name}
+                    </p>
+                  )}
+                </div>
+                {isDone ? (
+                  <CheckCircle size={18} color="#059669" style={{ flexShrink: 0 }} />
+                ) : (
+                  <button
+                    onClick={() => handleAdd(o)}
+                    disabled={isAdding}
+                    style={{
+                      padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                      background: isAdding ? '#e2e8f0' : '#0891b2', color: '#fff',
+                      fontSize: 11, fontWeight: 700, ...F, flexShrink: 0,
+                    }}
+                  >
+                    {isAdding ? '...' : 'Thêm'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Footer */}
+        {done.length > 0 && (
+          <div style={{
+            padding: '12px 18px', borderTop: '1px solid #f1f5f9',
+            color: '#059669', fontSize: 13, fontWeight: 600, ...F, textAlign: 'center'
+          }}>
+            ✓ Đã thêm {done.length} đơn • Tuyến được tính lại tự động
+          </div>
+        )}
+      </div>
     </div>
   )
 }
