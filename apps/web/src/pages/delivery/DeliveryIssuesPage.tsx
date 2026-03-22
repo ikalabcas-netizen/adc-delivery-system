@@ -5,6 +5,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { compressImage } from '@/utils/imageCompressor'
+import { stampImage } from '@/utils/imageStamp'
 
 const ISSUE_CATEGORIES = [
   { id: 'wrong_address', label: 'Sai địa chỉ', icon: MapPinOff },
@@ -59,7 +60,13 @@ export function DeliveryIssuesPage() {
     if (!file) return
     setCompressing(true)
     try {
-      const blob = await compressImage(file, 50)
+      const catLabel = ISSUE_CATEGORIES.find(c => c.id === category)?.label ?? 'Sự cố'
+      const stamped = await stampImage(file, {
+        title: catLabel,
+        watermark: 'ADC Issues',
+        capturedAt: new Date(),
+      })
+      const blob = await compressImage(stamped, 50)
       const url = URL.createObjectURL(blob)
       setPhoto(blob)
       setPhotoPreview(url)

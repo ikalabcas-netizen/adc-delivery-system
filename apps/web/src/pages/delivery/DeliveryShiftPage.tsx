@@ -3,6 +3,7 @@ import { PlayCircle, StopCircle, Clock, Camera, X, CheckCircle2 } from 'lucide-r
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { compressImage } from '@/utils/imageCompressor'
+import { stampImage } from '@/utils/imageStamp'
 
 // ─── Types ──────────────────────────────────────────────────────
 interface ShiftModalProps {
@@ -24,7 +25,11 @@ function ShiftModal({ isCheckIn, previousKm, onConfirm, onCancel }: ShiftModalPr
   async function handleFile(file: File) {
     setCompressing(true)
     try {
-      const blob = await compressImage(file, 50)
+      const stamped = await stampImage(file, {
+        watermark: isCheckIn ? 'ADC Odometer In' : 'ADC Odometer Out',
+        capturedAt: new Date(),
+      })
+      const blob = await compressImage(stamped, 50)
       const url  = URL.createObjectURL(blob)
       setPhoto(blob)
       setPreview(url)

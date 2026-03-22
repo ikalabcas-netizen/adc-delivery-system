@@ -7,6 +7,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { compressImage } from '@/utils/imageCompressor'
+import { stampImage } from '@/utils/imageStamp'
 
 // ─── Types ───────────────────────────────────────────────────
 type OrderRow = {
@@ -386,7 +387,13 @@ function CompleteOrderModal({ order, onDone, onClose }: {
     setCompressing(true)
     setError(null)
     try {
-      const blob = await compressImage(file, 200) // 200 KB for proof photos (readable)
+      const stamped = await stampImage(file, {
+        title: order.code,
+        subtitle: order.delivery_location?.name,
+        watermark: 'ADC Delivery',
+        capturedAt: new Date(),
+      })
+      const blob = await compressImage(stamped, 200)
       setPhoto(blob)
       setPreview(URL.createObjectURL(blob))
       setSizeKb(Math.round(blob.size / 1024))
