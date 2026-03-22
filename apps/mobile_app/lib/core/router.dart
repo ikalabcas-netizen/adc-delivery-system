@@ -11,7 +11,7 @@ import '../features/shell/app_shell.dart';
 import '../features/trips/trips_screen.dart';
 import '../features/trips/trip_orders_screen.dart';
 import '../features/shifts/shift_screen.dart';
-import '../features/feedback/feedback_screen.dart';
+import '../features/feedback/issues_screen.dart';
 import '../features/payments/payment_history_screen.dart';
 import '../features/costs/costs_screen.dart';
 
@@ -103,8 +103,8 @@ final router = GoRouter(
           builder: (_, __) => const ProfileScreen(),
         ),
         GoRoute(
-          path: '/feedback',
-          builder: (_, __) => const FeedbackScreen(),
+          path: '/issues',
+          builder: (_, __) => const IssuesScreen(),
         ),
         GoRoute(
           path: '/costs',

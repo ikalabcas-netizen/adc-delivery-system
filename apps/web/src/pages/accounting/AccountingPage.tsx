@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ChevronUp, MapPin, Truck, Calendar, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -193,6 +193,7 @@ const STATUS_CFG: Record<string, any> = {
   approved: { label: '✅ Đã duyệt', bg: '#dcfce7', color: '#16a34a' },
   approved_vouchered: { label: '📋 Lên chứng từ', bg: '#eff6ff', color: '#2563eb' },
   approved_paid: { label: '💵 Đã thanh toán', bg: '#f0fdf4', color: '#15803d' },
+  confirmed: { label: '✅ Đã xác nhận', bg: '#eff6ff', color: '#1d4ed8' },
   rejected: { label: '❌ Từ chối', bg: '#fff1f2', color: '#e11d48' },
 }
 function Badge({ status }: { status: string }) {
@@ -274,6 +275,7 @@ function FeeRow({ o, onApprove, onReject, selected, onToggle, isActing }: any) {
   const [rej, setRej] = useState(false)
   const [photo, setPhoto] = useState('')
   const ps = computePaymentStatus(o)
+  const proofUrl = o.delivery_proof_url || o.proof_photo_url
   return (
     <>
       <tr style={{ borderBottom: '1px solid #f8fafc' }}>
@@ -292,7 +294,17 @@ function FeeRow({ o, onApprove, onReject, selected, onToggle, isActing }: any) {
         </td>
         <td style={{ padding: '8px', textAlign: 'right' }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: o.extra_fee_status === 'rejected' ? '#94a3b8' : '#0f172a', textDecoration: o.extra_fee_status === 'rejected' ? 'line-through' : 'none', ...F }}>{fmt(o.extra_fee)}</div>
-          {(o.delivery_proof_url || o.proof_photo_url) && <button onClick={() => setPhoto(o.delivery_proof_url || o.proof_photo_url)} style={{ marginTop: 2, padding: '2px 6px', fontSize: 10, background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', borderRadius: 4, cursor: 'pointer', ...F }}>Xem ảnh</button>}
+          {/* Thumbnail ảnh chứng minh — click để xem fullscreen */}
+          {proofUrl && (
+            <div style={{ marginTop: 6, position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => setPhoto(proofUrl)}>
+              <img
+                src={proofUrl}
+                alt="Proof"
+                style={{ width: 80, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid #bae6fd', display: 'block' }}
+              />
+              <div style={{ position: 'absolute', bottom: 3, right: 3, background: 'rgba(0,0,0,0.55)', borderRadius: 4, padding: '1px 5px', fontSize: 9, color: '#fff', ...F }}>Xem ảnh</div>
+            </div>
+          )}
         </td>
         <td style={{ padding: '8px', textAlign: 'center' }}><Badge status={ps} /> {o.delivered_at && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>{fmtDate(o.delivered_at)}</div>}</td>
         <td style={{ padding: '8px 14px', textAlign: 'right' }}>
@@ -346,6 +358,12 @@ function ShiftRow({ s, onApprove, onReject, selected, onToggle, isActing, priceP
           <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, ...F }}>
             Thực tế: {s.km_driven ?? 0} km
           </div>
+          {/* km_in → km_out tóm tắt */}
+          {(s.km_in != null || s.km_out != null) && (
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+              {s.km_in?.toLocaleString() ?? '—'} km → {s.km_out?.toLocaleString() ?? '—'} km
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
              <button onClick={() => setShowPhotos(true)} style={{ padding: '2px 8px', fontSize: 10, background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe', borderRadius: 4, cursor: 'pointer', fontWeight: 600, ...F }}>Xem hình ảnh Odometer & KM</button>
           </div>
@@ -414,6 +432,10 @@ function ShiftRow({ s, onApprove, onReject, selected, onToggle, isActing, priceP
 function VoucherRow({ v, onMarkPaid }: { v: any, onMarkPaid: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const isKm = v.type === 'km_payment'
+  const status = v.status as string // 'pending' | 'paid' | 'confirmed'
+
+  // Map voucher status → Badge status key  
+  const badgeStatus = status === 'confirmed' ? 'confirmed' : status === 'paid' ? 'approved_paid' : 'pending'
   
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -427,16 +449,19 @@ function VoucherRow({ v, onMarkPaid }: { v: any, onMarkPaid: () => void }) {
           {isKm ? <MapPin size={18} color="#16a34a"/> : <Truck size={18} color="#ea580c"/>}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', ...F }}>{v.driver?.full_name}</span>
             <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{v.voucher_code}</span>
-            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: isKm ? '#dcfce7' : '#ffedd5', color: isKm ? '#166534' : '#9a3412', fontWeight: 600 }}>{isKm ? 'KM' : 'Phụ phí'}</span>
+            {/* Badge loại KM / Phụ phí */}
+            <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: isKm ? '#dcfce7' : '#ffedd5', color: isKm ? '#166534' : '#9a3412', fontWeight: 700, ...F }}>
+              {isKm ? '🛣️ KM' : '🚚 Phụ phí'}
+            </span>
           </div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Ngày lập: {fmtDate(v.created_at)} · {v.items?.length || 0} mục chi</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Ngày lập: {fmtDate(v.created_at)} · {v.items?.length || 0} mục chi{v.paid_at ? ` · Chi ngày ${fmtDate(v.paid_at)}` : ''}</div>
         </div>
         <div style={{ fontWeight: 700, fontSize: 16, color: '#0f172a', ...F }}>{fmt(v.total_amount)}</div>
-        <div onClick={e => e.stopPropagation()}><Badge status={v.status === 'paid' ? 'approved_paid' : 'pending'} /></div>
-        {v.status === 'pending' && (
+        <div onClick={e => e.stopPropagation()}><Badge status={badgeStatus} /></div>
+        {status === 'pending' && (
           <button 
             onClick={(e) => { e.stopPropagation(); onMarkPaid(); }} 
             style={{ padding: '8px 14px', borderRadius: 8, background: 'linear-gradient(135deg, #4f46e5, #4338ca)', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer', boxShadow: '0 2px 8px rgba(79,70,229,0.3)', ...F }}
@@ -474,6 +499,12 @@ function VoucherRow({ v, onMarkPaid }: { v: any, onMarkPaid: () => void }) {
               </div>
             )
           })}
+          {/* Hiển thị trạng thái xác nhận nếu driver đã confirm */}
+          {status === 'confirmed' && v.confirmed_at && (
+            <div style={{ marginTop: 4, padding: '8px 12px', background: '#eff6ff', borderRadius: 8, fontSize: 12, color: '#1d4ed8', ...F }}>
+              ✅ Driver đã xác nhận nhận tiền lúc {fmtDate(v.confirmed_at)}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -559,14 +590,28 @@ export function AccountingPage() {
   }, [fShifts, pricePerKm])
 
   const statVouchers = useMemo(() => {
-    let pending = 0, paid = 0
+    let pending = 0, paid = 0, confirmed = 0
     for (const v of fVouchers) {
        if (v.status === 'pending') pending += v.total_amount
+       else if (v.status === 'confirmed') confirmed += v.total_amount
        else paid += v.total_amount
     }
-    return { count: fVouchers.length, pending, paid }
+    return { count: fVouchers.length, pending, paid, confirmed }
   }, [fVouchers])
 
+
+  // ── Realtime subscription để tự cập nhật khi voucher thay đổi
+  const qc = useQueryClient()
+  useEffect(() => {
+    const channel = supabase
+      .channel('accounting_vouchers_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_vouchers' }, () => {
+        qc.invalidateQueries({ queryKey: ['accounting', 'vouchers'] })
+        qc.invalidateQueries({ queryKey: ['accounting', 'fees'] })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [qc])
 
   return (
     <div style={{ ...F, maxWidth: 1040 }}>

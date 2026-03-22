@@ -13,6 +13,15 @@ const VEHICLE_TYPE_OPTIONS = [
   'Ô tô',
 ]
 
+const ROLE_COLORS: Record<string, string> = {
+  super_admin: '#8b5cf6',
+  coordinator: '#06b6d4',
+  sales:       '#f59e0b',
+  manager:     '#059669',
+  delivery:    '#10b981',
+  accountant:  '#4f46e5',
+}
+
 export function ProfileSettingsPage() {
   const { session } = useAuthStore()
   const userId = session?.user?.id
@@ -42,6 +51,7 @@ export function ProfileSettingsPage() {
   }, [profile])
 
   const isDelivery = profile?.role === 'delivery'
+  const accentColor = profile?.role ? ROLE_COLORS[profile.role] || '#06b6d4' : '#06b6d4'
 
   async function handleSave() {
     await update.mutateAsync({
@@ -75,8 +85,8 @@ export function ProfileSettingsPage() {
         {profile?.avatar_url ? (
           <img src={profile.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <User size={24} color="#0891b2" />
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: `${accentColor}1A`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <User size={24} color={accentColor} />
           </div>
         )}
         <div>
@@ -160,7 +170,7 @@ export function ProfileSettingsPage() {
           disabled={update.isPending}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '10px 20px', background: '#06b6d4', color: '#fff',
+            padding: '10px 20px', background: accentColor, color: '#fff',
             border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'Outfit, sans-serif',
           }}

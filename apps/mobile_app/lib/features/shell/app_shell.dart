@@ -226,8 +226,8 @@ class HamburgerMenu extends StatelessWidget {
           child: _menuItem(Icons.person_outline_rounded, 'Hồ sơ'),
         ),
         PopupMenuItem(
-          value: 'feedback',
-          child: _menuItem(Icons.feedback_outlined, 'Góp ý'),
+          value: 'issues',
+          child: _menuItem(Icons.report_problem_outlined, 'Báo sự cố'),
         ),
         PopupMenuItem(
           value: 'payment',
@@ -243,8 +243,8 @@ class HamburgerMenu extends StatelessWidget {
         switch (val) {
           case 'profile':
             context.go('/profile');
-          case 'feedback':
-            context.go('/feedback');
+          case 'issues':
+            context.go('/issues');
           case 'payment':
             context.go('/costs');
           case 'logout':
