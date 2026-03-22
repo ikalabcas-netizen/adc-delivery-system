@@ -301,6 +301,7 @@ export function DeliveryShiftPage() {
         .update({
           ended_at: new Date().toISOString(),
           km_out: km,
+          status: 'ended',
           ...(photoUrl ? { odometer_photo_out_url: photoUrl } : {}),
         })
         .eq('id', activeShift.id)

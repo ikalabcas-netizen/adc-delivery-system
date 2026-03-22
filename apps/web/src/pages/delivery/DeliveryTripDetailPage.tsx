@@ -11,6 +11,15 @@ import { stampImage } from '@/utils/imageStamp'
 import { calcOptimizedRoute, ordersToWaypointsWithPickup } from '@/lib/routeOptimizer'
 
 // ─── Types ───────────────────────────────────────────────────
+type LocationRef = {
+  id: string
+  name: string
+  address?: string
+  phone?: string
+  lat?: number   // ← bắt buộc cho việc tính route
+  lng?: number   // ← bắt buộc cho việc tính route
+}
+
 type OrderRow = {
   id: string
   code: string
@@ -24,8 +33,8 @@ type OrderRow = {
   trip_id?: string
   delivered_at?: string
   created_at: string
-  pickup_location?: { id: string; name: string; address?: string; phone?: string }
-  delivery_location?: { id: string; name: string; address?: string; phone?: string }
+  pickup_location?:  LocationRef | null
+  delivery_location?: LocationRef | null
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,13 +62,33 @@ export function DeliveryTripDetailPage() {
   const [orders,  setOrders]  = useState<OrderRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Modal state
   const [completeModal, setCompleteModal] = useState<OrderRow | null>(null)
   const [failModal,     setFailModal]     = useState<OrderRow | null>(null)
   const [optimizing,    setOptimizing]    = useState(false)
   const [routeInfo,     setRouteInfo]     = useState<{ km: number; min: number } | null>(
     trip != null && trip.optimized_distance_km ? { km: Number(trip.optimized_distance_km), min: trip.optimized_duration_min ?? 0 } : null
   )
+
+  // ── Reorder callback sau khi kéo thả ───────────────────────────────
+  const handleReorder = useCallback(async (reorderedActive: OrderRow[]) => {
+    const doneOrders = orders.filter(o => o.status !== 'in_transit')
+    setOrders([...reorderedActive, ...doneOrders])
+
+    // Tính lại quãng đường theo thứ tự mới
+    const waypoints = ordersToWaypointsWithPickup(reorderedActive)
+    if (waypoints.length >= 2 && tripId) {
+      try {
+        const result = await calcOptimizedRoute(waypoints)
+        await supabase.from('trips').update({
+          optimized_distance_km:  result.optimized_distance_km,
+          optimized_duration_min: result.optimized_duration_min,
+        }).eq('id', tripId)
+        setRouteInfo({ km: result.optimized_distance_km, min: result.optimized_duration_min })
+      } catch {
+        console.warn('[Reorder] Route recalc failed')
+      }
+    }
+  }, [orders, tripId])
 
   // ── Fetch trip + orders ──────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -231,17 +260,42 @@ export function DeliveryTripDetailPage() {
       {activeOrders.length > 0 && (
         <>
           <SectionLabel text={`🚚 Đang giao (${activeOrders.length})`} color="#7c3aed" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-            {activeOrders.map((order, idx) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                index={idx + 1}
-                onComplete={() => setCompleteModal(order)}
-                onFail={() => setFailModal(order)}
+          {activeOrders.length > 1 && (
+            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, paddingLeft: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+              ☰ Kéo thả để sắp xếp thứ tự giao hàng
+            </div>
+          )}
+          {activeOrders.length > 1 ? (
+            <div style={{ marginBottom: 24 }}>
+              <SortableCardList
+                items={activeOrders}
+                onReorder={handleReorder}
+                renderItem={(order, displayIdx, onHandlePointerDown) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    index={displayIdx}
+                    onComplete={() => setCompleteModal(order)}
+                    onFail={() => setFailModal(order)}
+                    showDragHandle
+                    onHandlePointerDown={onHandlePointerDown}
+                  />
+                )}
               />
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              {activeOrders.map((order, idx) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  index={idx + 1}
+                  onComplete={() => setCompleteModal(order)}
+                  onFail={() => setFailModal(order)}
+                />
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -299,11 +353,13 @@ function SectionLabel({ text, color }: { text: string; color: string }) {
 }
 
 // ─── Order Card ───────────────────────────────────────────────
-function OrderCard({ order, index, onComplete, onFail }: {
+function OrderCard({ order, index, onComplete, onFail, showDragHandle = false, onHandlePointerDown }: {
   order: OrderRow
   index: number
   onComplete: (() => void) | null
   onFail: (() => void) | null
+  showDragHandle?: boolean
+  onHandlePointerDown?: React.PointerEventHandler<HTMLSpanElement>
 }) {
   const isDone = onComplete === null
   const statusColor = STATUS_COLORS[order.status] ?? '#94a3b8'
@@ -311,16 +367,29 @@ function OrderCard({ order, index, onComplete, onFail }: {
   const hasProof = !!order.delivery_proof_url
 
   return (
-    <div style={{
-      background: isDone ? '#f8fafc' : '#fff',
-      borderRadius: 14,
-      border: `1px solid ${isDone ? '#e2e8f0' : '#e2e8f0'}`,
-      boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
-      overflow: 'hidden',
-    }}>
+    <div
+      style={{
+        background: isDone ? '#f8fafc' : '#fff',
+        borderRadius: 14,
+        border: `1px solid ${isDone ? '#e2e8f0' : '#e2e8f0'}`,
+        boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
+        overflow: 'hidden',
+      }}
+    >
       <div style={{ padding: '14px 14px 10px' }}>
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          {showDragHandle && (
+            <span
+              onPointerDown={onHandlePointerDown}
+              style={{
+                color: '#cbd5e1', fontSize: 18, flexShrink: 0, lineHeight: 1,
+                touchAction: 'none', userSelect: 'none',
+                cursor: 'grab', padding: '2px 4px',
+              }}
+              title="Kéo thả để sắp xếp"
+            >☰</span>
+          )}
           <div style={{
             width: 28, height: 28, borderRadius: 8, flexShrink: 0,
             background: '#0a3444', color: '#fff',
@@ -519,17 +588,23 @@ function CompleteOrderModal({ order, onDone, onClose }: {
         📸 Chụp ảnh bằng chứng giao hàng. Bắt buộc mới xác nhận được.
       </p>
 
-      {/* Photo capture area */}
+      {/* Photo capture area — dùng <label> để trigger đúng cách trên Safari iOS */}
       <input
         ref={fileRef}
+        id={`photo-${order.id}`}
         type="file"
         accept="image/*"
         capture="environment"
         style={{ display: 'none' }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f) handleFile(f)
+          // Reset value để Safari cho phép chụp lại cùng file
+          e.target.value = ''
+        }}
       />
-      <div
-        onClick={() => !compressing && !uploading && fileRef.current?.click()}
+      <label
+        htmlFor={compressing || uploading ? undefined : `photo-${order.id}`}
         style={{
           height: 180, borderRadius: 14, marginBottom: 14,
           border: `2px solid ${preview ? '#059669' : '#e2e8f0'}`,
@@ -546,12 +621,13 @@ function CompleteOrderModal({ order, onDone, onClose }: {
                 ✓ {sizeKb} KB
               </div>
             )}
-            <div
-              onClick={e => { e.stopPropagation(); fileRef.current?.click() }}
+            <label
+              htmlFor={`photo-${order.id}`}
+              onClick={e => e.stopPropagation()}
               style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: '#fff', borderRadius: 20, padding: '3px 10px', fontSize: 11, cursor: 'pointer' }}
             >
               🔄 Chụp lại
-            </div>
+            </label>
           </>
         ) : compressing ? (
           <>
@@ -562,10 +638,10 @@ function CompleteOrderModal({ order, onDone, onClose }: {
           <>
             <Camera size={48} color="#cbd5e1" />
             <p style={{ color: '#64748b', fontSize: 14, fontWeight: 500, margin: '10px 0 4px' }}>Nhấn để mở camera</p>
-            <p style={{ color: '#cbd5e1', fontSize: 11 }}>Chỉ chụp trực tiếp, không dùng thư viện</p>
+            <p style={{ color: '#cbd5e1', fontSize: 11 }}>Chỉ chụp trực tiếp</p>
           </>
         )}
-      </div>
+      </label>
 
       {/* Extra fee */}
       <div style={{ padding: 12, borderRadius: 12, background: '#fefce8', border: '1px solid #fde68a', marginBottom: 14 }}>
@@ -729,6 +805,153 @@ function FailOrderModal({ order, actorId, onDone, onClose }: {
   )
 }
 
+// ─── Smooth Sortable Card List (Pointer Events) ──────────────────────────────────────────────────
+// Hiệu ứng mềm mại: ghost card theo cursor, siblings shift với translateY + transition
+type SortableRenderFn = (
+  item: OrderRow,
+  displayIdx: number,
+  onHandlePointerDown: React.PointerEventHandler<HTMLSpanElement>
+) => React.ReactNode
+
+function SortableCardList({
+  items,
+  onReorder,
+  renderItem,
+}: {
+  items: OrderRow[]
+  onReorder: (reordered: OrderRow[]) => void
+  renderItem: SortableRenderFn
+}) {
+  const [localItems,  setLocalItems]  = useState<OrderRow[]>(items)
+  const [draggingIdx, setDraggingIdx] = useState(-1)
+  const [insertAt,    setInsertAt]    = useState(-1)
+  const [ghostTop,    setGhostTop]    = useState(0)
+
+  const draggingIdxRef = useRef(-1)
+  const insertAtRef    = useRef(-1)
+  const startClientY   = useRef(0)
+  const startGhostTop  = useRef(0)
+  const cardH          = useRef(90) // estimated card height + gap
+  const containerRef   = useRef<HTMLDivElement>(null)
+  const rowRefs        = useRef<(HTMLDivElement | null)[]>([])
+  const GAP = 10
+
+  // Sync khi items prop thay đổi (sau khi reorder commit)
+  useEffect(() => { if (draggingIdx === -1) setLocalItems(items) }, [items, draggingIdx])
+
+  const startDrag = useCallback((e: React.PointerEvent<HTMLSpanElement>, idx: number) => {
+    e.preventDefault()
+    const row = rowRefs.current[idx]
+    if (row) {
+      const rect = row.getBoundingClientRect()
+      cardH.current = rect.height + GAP
+      startGhostTop.current = rect.top
+      setGhostTop(rect.top)
+    }
+    draggingIdxRef.current = idx
+    insertAtRef.current    = idx
+    startClientY.current   = e.clientY
+    setDraggingIdx(idx)
+    setInsertAt(idx)
+
+    // Dùng global listeners — pointer capture không cần thiết vì listener trên window
+    const onMove = (ev: PointerEvent) => {
+      const dy = ev.clientY - startClientY.current
+      setGhostTop(startGhostTop.current + dy)
+
+      // Tính insertAt mới theo cursor Y
+      let newInsert = draggingIdxRef.current
+      for (let i = 0; i < rowRefs.current.length; i++) {
+        const r = rowRefs.current[i]?.getBoundingClientRect()
+        if (!r) continue
+        if (ev.clientY < r.top + r.height / 2) { newInsert = i; break }
+        newInsert = i
+      }
+      insertAtRef.current = newInsert
+      setInsertAt(newInsert)
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup',   onUp)
+      window.removeEventListener('pointercancel', onUp)
+
+      const from = draggingIdxRef.current
+      const to   = insertAtRef.current
+      draggingIdxRef.current = -1
+      insertAtRef.current    = -1
+      setDraggingIdx(-1)
+      setInsertAt(-1)
+
+      if (from !== to && from >= 0 && to >= 0) {
+        setLocalItems(prev => {
+          const arr = [...prev]
+          const [moved] = arr.splice(from, 1)
+          arr.splice(to, 0, moved)
+          onReorder(arr)
+          return arr
+        })
+      }
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup',   onUp)
+    window.addEventListener('pointercancel', onUp)
+  }, [onReorder])
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      {localItems.map((item, idx) => {
+        const isGhost = idx === draggingIdx
+        // Shift siblings: items nhường chỗ cho card đang kéo
+        let shift = 0
+        if (draggingIdx >= 0 && !isGhost) {
+          if (draggingIdx < insertAt && idx > draggingIdx && idx <= insertAt) shift = -cardH.current
+          else if (draggingIdx > insertAt && idx >= insertAt && idx < draggingIdx) shift = cardH.current
+        }
+
+        return (
+          <div
+            key={item.id}
+            ref={el => { rowRefs.current[idx] = el }}
+            style={{
+              marginBottom: GAP,
+              transform: isGhost ? 'none' : `translateY(${shift}px)`,
+              transition: isGhost
+                ? 'none'
+                : 'transform 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              opacity: isGhost ? 0 : 1,   // ẩn card gốc khi khư — ghost sẽ hiện thay
+            }}
+          >
+            {renderItem(item, idx + 1, (e) => startDrag(e, idx))}
+          </div>
+        )
+      })}
+
+      {/* Ghost card — follow cursor, slight scale + shadow */}
+      {draggingIdx >= 0 && draggingIdx < localItems.length && (
+        <div
+          style={{
+            position: 'fixed',
+            top: ghostTop,
+            left: containerRef.current?.getBoundingClientRect().left ?? 0,
+            width: containerRef.current?.getBoundingClientRect().width ?? 320,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            transform: 'scale(1.03) rotate(0.5deg)',
+            filter: 'drop-shadow(0 16px 40px rgba(0,0,0,0.22))',
+            borderRadius: 14,
+            overflow: 'hidden',
+            transition: 'none',
+          }}
+        >
+          {renderItem(localItems[draggingIdx], draggingIdx + 1, () => {})}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Bottom Sheet Wrapper ─────────────────────────────────────
 function BottomSheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
@@ -738,10 +961,13 @@ function BottomSheet({ children, onClose }: { children: React.ReactNode; onClose
         backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end',
         zIndex: 200, fontFamily: 'Outfit, sans-serif',
       }}
-      onClick={onClose}
+      // Dùng onPointerDown + target check thay vì onClick để tránh bug Safari:
+      // khi camera app trả về, Safari có thể fire click event trên overlay
+      // dẫn đến modal bị đóng và mất ảnh đã chụp.
+      onPointerDown={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        onClick={e => e.stopPropagation()}
+        onPointerDown={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 600, margin: '0 auto',
           background: '#fff', borderRadius: '24px 24px 0 0',

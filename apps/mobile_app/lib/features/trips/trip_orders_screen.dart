@@ -41,13 +41,42 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
   Future<void> _fetch() async {
     setState(() => _loading = true);
     try {
-      final res = await _supabase.from('orders').select('''
-        id, code, status, note, delivery_proof_url,
-        extra_fee, extra_fee_note, extra_fee_status,
-        pickup_location:locations!orders_pickup_location_id_fkey(id, name, address),
-        delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
-      ''').eq('trip_id', widget.tripId).order('created_at');
-      if (mounted) setState(() { _orders = List<Map<String, dynamic>>.from(res); _loading = false; });
+      final results = await Future.wait([
+        _supabase.from('orders').select('''
+          id, code, status, note, delivery_proof_url,
+          extra_fee, extra_fee_note, extra_fee_status,
+          pickup_location:locations!orders_pickup_location_id_fkey(id, name, address),
+          delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
+        ''').eq('trip_id', widget.tripId).order('created_at'),
+        _supabase.from('trips')
+          .select('optimized_distance_km, optimized_duration_min')
+          .eq('id', widget.tripId)
+          .single(),
+      ]);
+
+      final ordersData = results[0] as List;
+      final tripData   = results[1] as Map<String, dynamic>;
+
+      if (mounted) {
+        setState(() {
+          _orders = List<Map<String, dynamic>>.from(ordersData);
+          _loading = false;
+        });
+
+        // Load route info saved in DB (no need to tap optimize button)
+        final distKm  = tripData['optimized_distance_km'];
+        final durMin  = tripData['optimized_duration_min'];
+        if (distKm != null && mounted) {
+          setState(() {
+            _optimizeResult = OptimizedRouteResult(
+              optimizedRoute:   const [],
+              totalDistanceKm:  (distKm as num).toDouble(),
+              totalDurationMin: (durMin as num?)?.toInt() ?? 0,
+              fromCache:        true,
+            );
+          });
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }

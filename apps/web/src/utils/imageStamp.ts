@@ -35,17 +35,20 @@ export async function stampImage(
     capturedAt = new Date(),
   } = options
 
-  // 1. Load ảnh vào element
-  const imgEl = await loadImage(file)
-  const { width: W, height: H } = imgEl
+  // 1. Load ảnh — dùng createImageBitmap với imageOrientation:'from-image'
+  //    để tự động xử lý EXIF rotation từ camera iOS Safari.
+  //    Fallback sang HTMLImageElement nếu browser không support.
+  const imgSource = await loadImageSource(file)
+  const W = 'width' in imgSource ? imgSource.width : (imgSource as HTMLImageElement).naturalWidth
+  const H = 'height' in imgSource ? imgSource.height : (imgSource as HTMLImageElement).naturalHeight
 
   const canvas = document.createElement('canvas')
   canvas.width  = W
   canvas.height = H
   const ctx = canvas.getContext('2d')!
 
-  // 2. Vẽ ảnh gốc
-  ctx.drawImage(imgEl, 0, 0, W, H)
+  // 2. Vẽ ảnh gốc (đã áp dụng EXIF orientation nếu dùng ImageBitmap)
+  ctx.drawImage(imgSource as CanvasImageSource, 0, 0, W, H)
 
   const scale  = W / 1080  // baseline 1080px
   const stripH = 160 * scale
@@ -95,7 +98,18 @@ export async function stampImage(
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function loadImage(file: File | Blob): Promise<HTMLImageElement> {
+/**
+ * Dùng createImageBitmap với imageOrientation:'from-image' để tự động xử lý
+ * EXIF rotation từ camera iOS. Fallback về HTMLImageElement nếu không support.
+ */
+async function loadImageSource(file: File | Blob): Promise<ImageBitmap | HTMLImageElement> {
+  if (typeof createImageBitmap !== 'undefined') {
+    try {
+      return await createImageBitmap(file, { imageOrientation: 'from-image' })
+    } catch {
+      // fallback nếu browser không support option này
+    }
+  }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const img = new Image()
