@@ -182,11 +182,12 @@ function KmStatsTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {shifts.map(s => {
         const status = s.km_approval_status || 'pending'
-        const cfg = {
+        const statusCfg: Record<string, { label: string; bg: string; color: string }> = {
           pending:  { label: '⏳ Chờ duyệt', bg: '#fef9c3', color: '#92400e' },
           approved: { label: '✅ Đã duyệt',  bg: '#dcfce7', color: '#166534' },
           rejected: { label: '❌ Từ chối',   bg: '#fee2e2', color: '#991b1b' },
-        }[status] ?? { label: '⏳ Chờ duyệt', bg: '#fef9c3', color: '#92400e' }
+        }
+        const cfg = statusCfg[status] ?? statusCfg.pending
 
         const timeStr = s.started_at
           ? `${fmtDate(s.started_at)} • ${fmtTime(s.started_at)}${s.ended_at ? ' - ' + fmtTime(s.ended_at) : ''}`

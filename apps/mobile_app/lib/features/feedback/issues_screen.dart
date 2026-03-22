@@ -249,17 +249,21 @@ class _IssuesScreenState extends State<IssuesScreen> with SingleTickerProviderSt
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFFECFEFF) : Colors.white,
+                    color: selected ? const Color(0xFF0891B2) : Colors.white,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: selected ? const Color(0xFF0891B2) : const Color(0xFFE2E8F0), width: selected ? 1.5 : 1),
+                    border: Border.all(
+                      color: selected ? const Color(0xFF0891B2) : const Color(0xFFE2E8F0),
+                      width: selected ? 1.5 : 1,
+                    ),
+                    boxShadow: selected ? [const BoxShadow(color: Color(0x220891B2), blurRadius: 8, offset: Offset(0, 2))] : null,
                   ),
                   child: Row(
                     children: [
-                      Icon(icon, size: 20, color: selected ? const Color(0xFF0891B2) : const Color(0xFF94A3B8)),
+                      Icon(icon, size: 20, color: selected ? Colors.white : const Color(0xFF94A3B8)),
                       const SizedBox(width: 12),
                       Text(label, style: GoogleFonts.outfit(
                         fontSize: 15, fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected ? const Color(0xFF0891B2) : const Color(0xFF334155),
+                        color: selected ? Colors.white : const Color(0xFF334155),
                       )),
                     ],
                   ),
@@ -342,13 +346,14 @@ class _IssuesScreenState extends State<IssuesScreen> with SingleTickerProviderSt
             FilledButton(
               onPressed: _submitting ? null : _submit,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
+                backgroundColor: const Color(0xFF0891B2),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               child: _submitting
                   ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text('Gửi Báo Cáo Sự Cố', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800)),
+                  : Text('Gửi Báo Cáo Sự Cố', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
             ),
             const SizedBox(height: 20),
           ],
