@@ -393,7 +393,7 @@ function CompleteOrderModal({ order, onDone, onClose }: {
         watermark: 'ADC Delivery',
         capturedAt: new Date(),
       })
-      const blob = await compressImage(stamped, 200)
+      const blob = await compressImage(stamped, 50)
       setPhoto(blob)
       setPreview(URL.createObjectURL(blob))
       setSizeKb(Math.round(blob.size / 1024))
