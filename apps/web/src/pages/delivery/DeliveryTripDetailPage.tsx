@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { compressImage } from '@/utils/imageCompressor'
 import { stampImage } from '@/utils/imageStamp'
-import { calcOptimizedRoute, ordersToWaypoints } from '@/lib/routeOptimizer'
+import { calcOptimizedRoute, ordersToWaypointsWithPickup } from '@/lib/routeOptimizer'
 
 // ─── Types ───────────────────────────────────────────────────
 type OrderRow = {
@@ -89,8 +89,8 @@ export function DeliveryTripDetailPage() {
   const recalcRoute = async (orderList: OrderRow[]) => {
     const active = orderList.filter(o => o.status === 'in_transit')
     if (active.length === 0) return
-    const waypoints = ordersToWaypoints(active)
-    if (waypoints.length < 2) return
+    const waypoints = ordersToWaypointsWithPickup(active)
+    if (waypoints.length < 2) return   // cần ít nhất kho + 1 điểm giao
     const result = await calcOptimizedRoute(waypoints)
     await supabase.from('trips').update({
       optimized_distance_km: result.optimized_distance_km,
@@ -201,7 +201,7 @@ export function DeliveryTripDetailPage() {
               await recalcRoute(orders.filter(o => o.status === 'in_transit'))
               setOptimizing(false)
             }}
-            disabled={optimizing || orders.filter(o => o.status === 'in_transit').length < 2}
+            disabled={optimizing || orders.filter(o => o.status === 'in_transit').length === 0}
             style={{
               padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
               background: optimizing ? '#e2e8f0' : '#0891b2',

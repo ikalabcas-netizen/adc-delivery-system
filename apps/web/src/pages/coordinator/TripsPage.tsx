@@ -3,7 +3,7 @@ import { Truck, Calendar, ChevronDown, ChevronUp, Package, CheckCircle, Clock, C
 import { useTrips, TripFilters } from '@/hooks/useTrips'
 import type { Trip, TripStatus, Order } from '@adc/shared-types'
 import { supabase } from '@/lib/supabase'
-import { calcOptimizedRoute, ordersToWaypoints } from '@/lib/routeOptimizer'
+import { calcOptimizedRoute, ordersToWaypointsWithPickup } from '@/lib/routeOptimizer'
 
 // ── Status config ──────────────────────────────────────
 const STATUS_CFG: Record<TripStatus, { label: string; bg: string; color: string; dot: string }> = {
@@ -362,13 +362,17 @@ function AddOrderModal({ tripId, driverId, onClose }: AddOrderModalProps) {
 
       // 2. Fetch all trip orders for route recalc
       const { data: tripOrders } = await supabase.from('orders')
-        .select('id, status, delivery_location:locations!orders_delivery_location_id_fkey(id, name, lat, lng)')
+        .select(`
+          id, status,
+          pickup_location:locations!orders_pickup_location_id_fkey(id, name, lat, lng),
+          delivery_location:locations!orders_delivery_location_id_fkey(id, name, lat, lng)
+        `)
         .eq('trip_id', tripId)
         .not('status', 'in', '(cancelled)')
 
-      // 3. Recalc route
-      if (tripOrders && tripOrders.length >= 2) {
-        const waypoints = ordersToWaypoints(tripOrders as any[])
+      // 3. Recalc route — dùng pickup của đơn đầu làm điểm xuất phát
+      if (tripOrders && tripOrders.length >= 1) {
+        const waypoints = ordersToWaypointsWithPickup(tripOrders as any[])
         if (waypoints.length >= 2) {
           const result = await calcOptimizedRoute(waypoints)
           await supabase.from('trips').update({

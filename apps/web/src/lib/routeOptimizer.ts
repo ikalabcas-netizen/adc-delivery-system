@@ -92,8 +92,44 @@ export async function calcOptimizedRoute(waypoints: Waypoint[]): Promise<RouteRe
 }
 
 /**
- * Lấy waypoints từ danh sách orders (cần trường delivery_location có lat/lng).
- * Nếu có driverPos → thêm làm điểm xuất phát.
+ * Lấy waypoints từ danh sách orders:
+ * - Điểm xuất phát = pickup_location của đơn đầu (nếu có lat/lng)
+ * - Các điểm đến = delivery_location của từng đơn
+ * Cho phép tính route ngay cả khi chỉ có 1 điểm giao.
+ */
+export function ordersToWaypointsWithPickup(
+  orders: Array<{
+    pickup_location?:  { lat?: number; lng?: number; name?: string } | null
+    delivery_location?: { lat?: number; lng?: number; name?: string } | null
+  }>,
+  driverPos?: { lat: number; lng: number } | null,
+): Waypoint[] {
+  const deliveries: Waypoint[] = orders
+    .map(o => {
+      const loc = o.delivery_location
+      if (!loc?.lat || !loc?.lng) return null
+      return { lat: loc.lat, lng: loc.lng, label: loc.name }
+    })
+    .filter(Boolean) as Waypoint[]
+
+  if (deliveries.length === 0) return []
+
+  // Ưu tiên: vị trí tài xế > pickup_location > chỉ dùng deliveries
+  if (driverPos) {
+    return [{ lat: driverPos.lat, lng: driverPos.lng, label: 'Vị trí hiện tại' }, ...deliveries]
+  }
+
+  const firstPickup = orders[0]?.pickup_location
+  if (firstPickup?.lat && firstPickup?.lng) {
+    return [{ lat: firstPickup.lat, lng: firstPickup.lng, label: firstPickup.name ?? 'Kho' }, ...deliveries]
+  }
+
+  return deliveries
+}
+
+/**
+ * Legacy helper — chỉ dùng delivery_location (không có điểm xuất phát).
+ * Dùng khi không có pickup info.
  */
 export function ordersToWaypoints(
   orders: Array<{ delivery_location?: { lat?: number; lng?: number; name?: string } | null }>,
