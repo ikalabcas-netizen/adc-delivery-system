@@ -107,7 +107,16 @@ export function DeliveryTripDetailPage() {
         .eq('trip_id', tripId)
         .order('created_at', { ascending: true }),
     ])
-    if (tripData) setTrip(tripData)
+    if (tripData) {
+      setTrip(tripData)
+      // Bug 1 fix: load route info từ DB ngay khi fetch
+      if (tripData.optimized_distance_km != null) {
+        setRouteInfo({
+          km:  Number(tripData.optimized_distance_km),
+          min: tripData.optimized_duration_min ?? 0,
+        })
+      }
+    }
     if (ordersData) setOrders(ordersData as unknown as OrderRow[])
     setLoading(false)
   }, [tripId])
@@ -226,9 +235,48 @@ export function DeliveryTripDetailPage() {
           </div>
           <button
             onClick={async () => {
+              if (!tripId) return
               setOptimizing(true)
-              await recalcRoute(orders.filter(o => o.status === 'in_transit'))
-              setOptimizing(false)
+              try {
+                // Bug 2 fix: gọi Edge Function optimize-route (ORS VRPTW)
+                // — tìm thứ tự tối ưu thực sự, không chỉ tính distance theo thứ tự hiện tại
+                const { data, error } = await supabase.functions.invoke('optimize-route', {
+                  body: { tripId },
+                })
+                if (error) throw error
+
+                // Reorder active orders theo thứ tự tối ưu
+                const optimizedRoute: Array<{ sequence: number; orderId: string; type: string }> =
+                  data?.optimized_route ?? []
+
+                if (optimizedRoute.length > 0) {
+                  // Lấy orderId theo thứ tự (dùng delivery stop — mỗi đơn chỉ có 1)
+                  const orderedIds = optimizedRoute
+                    .filter((s) => s.type === 'delivery')
+                    .sort((a, b) => a.sequence - b.sequence)
+                    .map((s) => s.orderId)
+
+                  setOrders(prev => {
+                    const active  = prev.filter(o => o.status === 'in_transit')
+                    const done    = prev.filter(o => o.status !== 'in_transit')
+                    const sorted  = orderedIds
+                      .map(id => active.find(o => o.id === id))
+                      .filter(Boolean) as OrderRow[]
+                    // Đơn active không nằm trong route (edge case) — giữ cuối list
+                    const missing = active.filter(o => !orderedIds.includes(o.id))
+                    return [...sorted, ...missing, ...done]
+                  })
+                }
+
+                setRouteInfo({
+                  km:  data?.total_distance_km ?? 0,
+                  min: data?.total_duration_min ?? 0,
+                })
+              } catch (err) {
+                console.warn('[Optimize] Failed:', err)
+              } finally {
+                setOptimizing(false)
+              }
             }}
             disabled={optimizing || orders.filter(o => o.status === 'in_transit').length === 0}
             style={{

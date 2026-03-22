@@ -49,7 +49,8 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
           delivery_location:locations!orders_delivery_location_id_fkey(id, name, address)
         ''').eq('trip_id', widget.tripId).order('created_at'),
         _supabase.from('trips')
-          .select('optimized_distance_km, optimized_duration_min')
+          // Bug 3 fix: thêm optimized_route để sort orders khi load
+          .select('optimized_distance_km, optimized_duration_min, optimized_route')
           .eq('id', widget.tripId)
           .single(),
       ]);
@@ -58,14 +59,36 @@ class _TripOrdersScreenState extends State<TripOrdersScreen> {
       final tripData   = results[1] as Map<String, dynamic>;
 
       if (mounted) {
+        // Bug 3 fix: sort active orders theo optimized_route sequence từ DB
+        var orders = List<Map<String, dynamic>>.from(ordersData);
+        final optimizedRoute = tripData['optimized_route'];
+        if (optimizedRoute is List && optimizedRoute.isNotEmpty) {
+          // Lấy thứ tự delivery stops (sequence → orderId)
+          final deliveryStops = (optimizedRoute as List)
+              .where((s) => s['type'] == 'delivery')
+              .toList()
+            ..sort((a, b) => (a['sequence'] as int).compareTo(b['sequence'] as int));
+          final orderedIds = deliveryStops.map((s) => s['orderId'] as String).toList();
+
+          // Sort: active orders theo optimized order, xong các đơn đã hoàn thành
+          final active  = orders.where((o) => o['status'] == 'in_transit').toList();
+          final done    = orders.where((o) => o['status'] != 'in_transit').toList();
+          final sorted  = orderedIds
+              .map((id) => active.firstWhere((o) => o['id'] == id, orElse: () => <String, dynamic>{}))
+              .where((o) => o.isNotEmpty)
+              .toList();
+          final missing = active.where((o) => !orderedIds.contains(o['id'])).toList();
+          orders = [...sorted, ...missing, ...done];
+        }
+
         setState(() {
-          _orders = List<Map<String, dynamic>>.from(ordersData);
+          _orders  = orders;
           _loading = false;
         });
 
         // Load route info saved in DB (no need to tap optimize button)
-        final distKm  = tripData['optimized_distance_km'];
-        final durMin  = tripData['optimized_duration_min'];
+        final distKm = tripData['optimized_distance_km'];
+        final durMin = tripData['optimized_duration_min'];
         if (distKm != null && mounted) {
           setState(() {
             _optimizeResult = OptimizedRouteResult(
